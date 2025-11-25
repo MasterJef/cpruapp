@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "417559432644",
+    "project_id": "cprujobapp",
+    "storage_bucket": "cprujobapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:417559432644:android:1defc30ef5c72ed8cf6891",
+        "android_client_info": {
+          "package_name": "com.example.cprujobapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxTEWDD3iKYzYeLY7_L0cIuUcbrebKhbk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
