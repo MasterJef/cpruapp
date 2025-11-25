@@ -1,0 +1,136 @@
+import 'package:flutter/material.dart';
+import '../models/mock_data.dart';
+
+class JobDetailScreen extends StatelessWidget {
+  final Job job;
+
+  const JobDetailScreen({super.key, required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('รายละเอียดงาน')),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // รูปภาพใหญ่ด้านบน
+            Image.network(
+              job.imageUrl,
+              width: double.infinity,
+              height: 250,
+              fit: BoxFit.cover,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Chip แสดงสถานะ (ตกแต่ง)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'งานด่วน',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // หัวข้อและราคา
+                  Text(
+                    job.title,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    job.price,
+                    style: TextStyle(
+                      fontSize: 20,
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ข้อมูลเพิ่มเติม
+                  _buildInfoRow(Icons.location_on, 'สถานที่:', job.location),
+                  const SizedBox(height: 10),
+                  _buildInfoRow(
+                    Icons.description,
+                    'รายละเอียด:',
+                    job.description,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      // ปุ่มรับงานด้านล่าง (BottomNavigationBar)
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 5,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: FilledButton(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'คุณกดรับงานนี้แล้ว! ผู้จ้างจะได้รับการแจ้งเตือน',
+                ),
+              ),
+            );
+          },
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            textStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          child: const Text('รับงานนี้ (Accept Job)'),
+        ),
+      ),
+    );
+  }
+
+  // Helper Widget สำหรับสร้างแถวข้อมูล
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(value, style: const TextStyle(height: 1.4)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
