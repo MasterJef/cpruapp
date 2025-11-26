@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/job_model.dart'; // Import Model จริง
 import '../models/user_model.dart';
-import '../models/mock_data.dart'; // ยังคงใช้ Mock Data สำหรับ Freelancer Tab
 import 'job_detail_screen.dart';
 import 'freelancer_detail_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
-import 'post_job_form.dart'; // Import หน้าโพสต์งาน
+import '../models/mock_data.dart'; // Import นี้ไว้สำหรับ Freelancer อย่างเดียว (ถ้าคุณยังแยกไฟล์อยู่)
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -91,69 +91,44 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: TabBarView(
           children: [
-            _buildFirestoreJobList(context), // <--- ใช้ Function ใหม่
-            _buildFreelancerList(context), // อันนี้ใช้ Mock เหมือนเดิม
+            _buildRealJobList(context), // <--- ใช้ข้อมูลจริง
+            _buildFreelancerList(
+              context,
+            ), // <--- อันนี้ยัง Mock อยู่ (เพราะยังไม่ได้ทำระบบหลังบ้าน Freelancer)
           ],
         ),
       ),
     );
   }
 
-  // Widget สำหรับดึงข้อมูลจาก Firestore แบบ Realtime
-  Widget _buildFirestoreJobList(BuildContext context) {
-    // เข้าถึง Collection 'jobs' เรียงตาม created_at จากใหม่ไปเก่า
-    final Stream<QuerySnapshot> _jobsStream = FirebaseFirestore.instance
-        .collection('jobs')
-        .orderBy('created_at', descending: true)
-        .snapshots();
-
+  // Widget ดึงข้อมูลจริงจาก Firestore
+  Widget _buildRealJobList(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _jobsStream,
-      builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-        // 1. สถานะ Error
-        if (snapshot.hasError) {
-          return const Center(child: Text('เกิดข้อผิดพลาดในการโหลดข้อมูล'));
-        }
-
-        // 2. สถานะ Loading
-        if (snapshot.connectionState == ConnectionState.waiting) {
+      stream: FirebaseFirestore.instance
+          .collection('jobs')
+          .orderBy('created_at', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError)
+          return const Center(child: Text('โหลดข้อมูลล้มเหลว'));
+        if (snapshot.connectionState == ConnectionState.waiting)
           return const Center(child: CircularProgressIndicator());
-        }
 
-        // 3. ไม่มีข้อมูล
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox, size: 60, color: Colors.grey),
-                SizedBox(height: 10),
-                Text(
-                  'ยังไม่มีประกาศงานขณะนี้',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
+            child: Text(
+              'ยังไม่มีประกาศงาน',
+              style: TextStyle(color: Colors.grey),
             ),
           );
         }
 
-        // 4. มีข้อมูล -> แสดงผล ListView
-        return ListView(
+        return ListView.builder(
           padding: const EdgeInsets.all(12),
-          children: snapshot.data!.docs.map((DocumentSnapshot document) {
-            Map<String, dynamic> data =
-                document.data()! as Map<String, dynamic>;
-
-            // แปลงข้อมูล Firestore เป็น Object Job (เพื่อส่งไปหน้า Detail)
-            // หมายเหตุ: ตรงนี้เราสร้าง Job Object ขึ้นมาเองเพื่อให้เข้ากับหน้า JobDetailScreen เดิม
-            Job job = Job(
-              id: document.id,
-              title: data['title'] ?? 'ไม่ระบุชื่อ',
-              description: data['description'] ?? '-',
-              price: '${data['price']} บาท', // แปลงตัวเลขเป็น String พร้อมหน่วย
-              location: data['location'] ?? 'ไม่ระบุ',
-              imageUrl: data['imageUrl'] ?? 'https://via.placeholder.com/150',
-            );
+          itemCount: snapshot.data!.docs.length,
+          itemBuilder: (context, index) {
+            // ใช้ Factory Method แปลงข้อมูลสวยๆ
+            Job job = Job.fromFirestore(snapshot.data!.docs[index]);
 
             return Card(
               elevation: 2,
@@ -167,8 +142,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 60,
                     height: 60,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.image_not_supported),
+                    errorBuilder: (ctx, err, stack) => Container(
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.broken_image),
+                    ),
                   ),
                 ),
                 title: Text(
@@ -180,27 +157,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.location,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      job.location,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       job.price,
                       style: TextStyle(
@@ -216,7 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.grey,
                 ),
                 onTap: () {
-                  // ส่ง Object Job ไปหน้า Detail
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -226,14 +185,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             );
-          }).toList(),
+          },
         );
       },
     );
   }
 
-  // --- ส่วน Freelancer ใช้ Mock Data เดิม (ไม่ได้แก้) ---
+  // ส่วน Freelancer (ยังคงเดิมไว้ก่อน หรือจะย้าย Mock Data มาใส่ไฟล์นี้เลยก็ได้)
   Widget _buildFreelancerList(BuildContext context) {
+    // ต้องมี mockFreelancers อยู่ใน mock_data.dart หรือประกาศในนี้
+    if (mockFreelancers.isEmpty)
+      return const Center(child: Text('ไม่มีข้อมูล Freelancer'));
+
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -246,14 +209,12 @@ class _HomeScreenState extends State<HomeScreen> {
       itemBuilder: (context, index) {
         final freelancer = mockFreelancers[index];
         return InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FreelancerDetailScreen(freelancer: freelancer),
-              ),
-            );
-          },
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => FreelancerDetailScreen(freelancer: freelancer),
+            ),
+          ),
           child: Card(
             elevation: 2,
             clipBehavior: Clip.antiAlias,
@@ -289,10 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Row(
                         children: [
                           const Icon(Icons.star, size: 14, color: Colors.amber),
-                          Text(
-                            ' ${freelancer.rating}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                          Text(' ${freelancer.rating}'),
                         ],
                       ),
                     ],

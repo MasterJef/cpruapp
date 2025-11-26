@@ -1,14 +1,14 @@
-// lib/models/job_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Job {
   final String id;
-  final String title; // ชื่องาน
-  final String description; // รายละเอียดงาน
-  final String price; // ค่าตอบแทน (ใช้ String เพื่อใส่หน่วยเงินได้ง่าย)
-  final String location; // สถานที่ทำงาน
-  final String imageUrl; // ลิงก์รูปภาพ
+  final String title;
+  final String description;
+  final String price;
+  final String location;
+  final String imageUrl;
+  final String createdBy;
 
-  // Constructor (ตัวสร้างวัตถุ)
   Job({
     required this.id,
     required this.title,
@@ -16,54 +16,24 @@ class Job {
     required this.price,
     required this.location,
     required this.imageUrl,
+    required this.createdBy,
   });
-}
 
-// ข้อมูลจำลอง (Mock Data) สำหรับทดสอบแสดงผล
-List<Job> mockJobs = [
-  Job(
-    id: '1',
-    title: 'สอนพิเศษคณิตศาสตร์ ประถม',
-    description: 'สอนน้องประถม ป.4-6 ช่วงเย็นหลังเลิกเรียน',
-    price: '300 บาท/ชม.',
-    location: 'ห้องสมุดมหาวิทยาลัย',
-    imageUrl:
-        'https://images.pexels.com/photos/5428003/pexels-photo-5428003.jpeg?auto=compress&cs=tinysrgb&w=400',
-  ),
-  Job(
-    id: '2',
-    title: 'พนักงานชงกาแฟ Part-time',
-    description: 'ช่วยงานในร้านกาแฟหน้ามอ เสาร์-อาทิตย์',
-    price: '50 บาท/ชม.',
-    location: 'Coffee House หน้ามอ',
-    imageUrl:
-        'https://images.pexels.com/photos/373639/pexels-photo-373639.jpeg?auto=compress&cs=tinysrgb&w=400',
-  ),
-  Job(
-    id: '3',
-    title: 'ช่วยงานเอกสาร คณะบริหาร',
-    description: 'คีย์ข้อมูลและจัดเรียงเอกสารราชการ',
-    price: '400 บาท/วัน',
-    location: 'ตึกคณะบริหารธุรกิจ ชั้น 2',
-    imageUrl:
-        'https://images.pexels.com/photos/590016/pexels-photo-590016.jpeg?auto=compress&cs=tinysrgb&w=400',
-  ),
-  Job(
-    id: '4',
-    title: 'ออกแบบกราฟิกโปสเตอร์',
-    description: 'ทำโปสเตอร์โปรโมทงานรับน้อง (ทำที่ห้องได้)',
-    price: '1,000 บาท/ชิ้น',
-    location: 'Work form Home',
-    imageUrl:
-        'https://images.pexels.com/photos/196644/pexels-photo-196644.jpeg?auto=compress&cs=tinysrgb&w=400',
-  ),
-  Job(
-    id: '5',
-    title: 'Staff งานอีเวนท์ดนตรี',
-    description: 'ดูแลความเรียบร้อยหน้างาน จัดเก้าอี้',
-    price: '600 บาท/วัน',
-    location: 'หอประชุมใหญ่',
-    imageUrl:
-        'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg?auto=compress&cs=tinysrgb&w=400',
-  ),
-];
+  // Factory Constructor: แปลงข้อมูลจาก Firebase มาเป็น Job Object
+  // วิธีนี้ช่วยกันแอปพังถ้าข้อมูลบางช่องเป็น Null
+  factory Job.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+    return Job(
+      id: doc.id,
+      title: data['title'] ?? 'ไม่ระบุชื่องาน',
+      description: data['description'] ?? '',
+      price: '${data['price'] ?? 0} บาท', // แปลงตัวเลขเป็น String + หน่วย
+      location: data['location'] ?? 'ไม่ระบุสถานที่',
+      imageUrl:
+          data['imageUrl'] ??
+          'https://via.placeholder.com/300x200.png?text=No+Image',
+      createdBy: data['createdBy'] ?? '',
+    );
+  }
+}

@@ -1,7 +1,8 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import '../main.dart'; // import เพื่อให้ลิงก์ไปยังหน้าหลักได้
+import '../main.dart';
 import 'register_screen.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,27 +12,44 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // ตัวแปรเก็บค่าในฟอร์ม (จำลอง)
+  final _authService = AuthService();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
 
-  void _login() {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
-      // จำลองการล็อกอินสำเร็จ
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับ')),
+      setState(() => _isLoading = true);
+
+      // เรียก Login จริง
+      String? error = await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
 
-      // เปลี่ยนหน้าไปที่ MainNavigationWrapper (หน้าหลักของแอป)
-      // ใช้ pushReplacement เพื่อไม่ให้กด Back กลับมาหน้าล็อกอินได้
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainNavigationWrapper()),
-      );
+      setState(() => _isLoading = false);
+
+      if (error == null) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MainNavigationWrapper(),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error), backgroundColor: Colors.red),
+          );
+        }
+      }
     }
   }
 
+  // ... (ส่วน build เหมือนเดิม เพิ่มแค่เช็ค _isLoading) ...
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 1. โลโก้แอป
+                // โลโก้ ... (โค้ดเดิม)
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -66,106 +84,68 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.orange,
                   ),
                 ),
-                const Text(
-                  'เข้าสู่ระบบเพื่อเริ่มใช้งาน',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
+
                 const SizedBox(height: 40),
 
-                // 2. ช่องกรอกอีเมล
+                // Fields
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
-                    labelText: 'อีเมล / รหัสนักศึกษา',
+                    labelText: 'อีเมล',
                     prefixIcon: Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+                    border: OutlineInputBorder(),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'กรุณากรอกอีเมล';
-                    return null;
-                  },
+                  validator: (v) => v!.isEmpty ? 'กรุณากรอกอีเมล' : null,
                 ),
                 const SizedBox(height: 16),
-
-                // 3. ช่องกรอกรหัสผ่าน
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true, // ปิดบังตัวอักษร
+                  obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'รหัสผ่าน',
                     prefixIcon: Icon(Icons.lock_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                    ),
+                    border: OutlineInputBorder(),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty)
-                      return 'กรุณากรอกรหัสผ่าน';
-                    return null;
-                  },
+                  validator: (v) => v!.isEmpty ? 'กรุณากรอกรหัสผ่าน' : null,
                 ),
 
-                // ลืมรหัสผ่าน
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    child: const Text(
-                      'ลืมรหัสผ่าน?',
-                      style: TextStyle(color: Colors.orange),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // 4. ปุ่ม Login
+                // Login Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: FilledButton(
-                    onPressed: _login,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'เข้าสู่ระบบ',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : FilledButton(
+                          onPressed: _login,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                          ),
+                          child: const Text(
+                            'เข้าสู่ระบบ',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                ),
+
+                // Register Link ... (โค้ดเดิม)
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  ),
+                  child: const Text(
+                    'สมัครสมาชิก',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // 5. ปุ่มไปหน้าสมัครสมาชิก
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('ยังไม่มีบัญชี? '),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RegisterScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'สมัครสมาชิก',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

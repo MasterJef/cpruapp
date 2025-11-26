@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 
@@ -41,7 +42,9 @@ class _PostJobFormState extends State<PostJobForm> {
           'location': _locationController.text.trim(),
           'category': _selectedCategory,
           'imageUrl': randomImage,
-          'created_at': FieldValue.serverTimestamp(), // เวลาปัจจุบันของ Server
+          'created_at': FieldValue.serverTimestamp(),
+          'createdBy':
+              FirebaseAuth.instance.currentUser!.uid, // เวลาปัจจุบันของ Server
         });
 
         // บันทึกเสร็จแล้ว

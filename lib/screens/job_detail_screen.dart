@@ -1,8 +1,13 @@
+// lib/screens/job_detail_screen.dart
 import 'package:flutter/material.dart';
-import '../models/mock_data.dart';
+// -------------------------------------------------------------
+// ❌ ลบอันนี้: import '../models/mock_data.dart';
+// ✅ ใส่อันนี้แทน:
+import '../models/job_model.dart';
+// -------------------------------------------------------------
 
 class JobDetailScreen extends StatelessWidget {
-  final Job job;
+  final Job job; // ตอนนี้มันจะรู้จัก Job แล้ว เพราะเรา import job_model มา
 
   const JobDetailScreen({super.key, required this.job});
 
@@ -14,19 +19,23 @@ class JobDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // รูปภาพใหญ่ด้านบน
+            // รูปภาพ
             Image.network(
               job.imageUrl,
               width: double.infinity,
               height: 250,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                height: 250,
+                color: Colors.grey[300],
+                child: const Icon(Icons.broken_image, size: 50),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Chip แสดงสถานะ (ตกแต่ง)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -46,7 +55,6 @@ class JobDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // หัวข้อและราคา
                   Text(
                     job.title,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -64,7 +72,6 @@ class JobDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
 
-                  // ข้อมูลเพิ่มเติม
                   _buildInfoRow(Icons.location_on, 'สถานที่:', job.location),
                   const SizedBox(height: 10),
                   _buildInfoRow(
@@ -78,7 +85,6 @@ class JobDetailScreen extends StatelessWidget {
           ],
         ),
       ),
-      // ปุ่มรับงานด้านล่าง (BottomNavigationBar)
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -103,6 +109,7 @@ class JobDetailScreen extends StatelessWidget {
           },
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: Colors.orange,
             textStyle: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -114,7 +121,6 @@ class JobDetailScreen extends StatelessWidget {
     );
   }
 
-  // Helper Widget สำหรับสร้างแถวข้อมูล
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

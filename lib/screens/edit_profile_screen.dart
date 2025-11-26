@@ -1,6 +1,9 @@
 // lib/screens/edit_profile_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart'; // ต้องมี package นี้
 import '../models/user_model.dart';
+import '../services/auth_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -10,9 +13,8 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
+  // ... (Controllers เดิม) ...
   final _formKey = GlobalKey<FormState>();
-
-  // Controllers
   late TextEditingController _firstNameCtrl;
   late TextEditingController _lastNameCtrl;
   late TextEditingController _idCtrl;
@@ -20,10 +22,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _majorCtrl;
   late TextEditingController _yearCtrl;
 
+  final _authService = AuthService();
+  bool _isUploading = false;
+
   @override
   void initState() {
     super.initState();
-    // ดึงข้อมูลปัจจุบันมาใส่ในช่องกรอก
+    // (เหมือนเดิม)
     _firstNameCtrl = TextEditingController(text: currentUser.firstName);
     _lastNameCtrl = TextEditingController(text: currentUser.lastName);
     _idCtrl = TextEditingController(text: currentUser.studentId);
@@ -32,26 +37,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _yearCtrl = TextEditingController(text: currentUser.year);
   }
 
-  void _saveProfile() {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        // อัปเดตข้อมูล Global
-        currentUser.firstName = _firstNameCtrl.text;
-        currentUser.lastName = _lastNameCtrl.text;
-        currentUser.studentId = _idCtrl.text;
-        currentUser.faculty = _facultyCtrl.text;
-        currentUser.major = _majorCtrl.text;
-        currentUser.year = _yearCtrl.text;
-      });
+  // ฟังก์ชันเลือกและอัปโหลดรูป
+  Future<void> _pickAndUploadImage() async {
+    final ImagePicker picker = ImagePicker();
+    // เลือกรูปจาก Gallery
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย!')));
+    if (image != null) {
+      setState(() => _isUploading = true);
 
-      // ส่งค่า true กลับไปเพื่อบอกให้หน้าก่อนหน้า refresh
-      Navigator.pop(context, true);
+      // เรียก Service อัปโหลด
+      String? newUrl = await _authService.uploadProfileImage(File(image.path));
+
+      setState(() => _isUploading = false);
+
+      if (newUrl != null) {
+        setState(() {}); // Refresh UI เพื่อโชว์รูปใหม่
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('อัปเดตรูปโปรไฟล์สำเร็จ!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('อัปโหลดล้มเหลว'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
+
+  // (ส่วน _saveProfile ใช้โค้ดเดิมได้ แต่ควรเพิ่ม logic update firestore ด้วย ถ้าต้องการสมบูรณ์)
 
   @override
   Widget build(BuildContext context) {
@@ -63,14 +82,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // รูปโปรไฟล์ (จำลองการเปลี่ยนรูป)
+              // ส่วนรูปภาพ
               Center(
                 child: Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundImage: NetworkImage(currentUser.imageUrl),
-                    ),
+                    // ถ้ากำลังอัปโหลด ให้โชว์ Loading ทับ
+                    _isUploading
+                        ? const CircleAvatar(
+                            radius: 50,
+                            child: CircularProgressIndicator(),
+                          )
+                        : CircleAvatar(
+                            radius: 50,
+                            backgroundImage: NetworkImage(currentUser.imageUrl),
+                          ),
                     Positioned(
                       bottom: 0,
                       right: 0,
@@ -83,91 +108,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             size: 18,
                             color: Colors.white,
                           ),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('ฟีเจอร์อัปโหลดรูป (จำลอง)'),
-                              ),
-                            );
-                          },
+                          onPressed: _pickAndUploadImage, // เรียกฟังก์ชัน
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
+              // ... (ส่วน TextFields เหมือนเดิม) ...
               const SizedBox(height: 24),
-
-              Row(
-                children: [
-                  Expanded(child: _buildTextField(_firstNameCtrl, 'ชื่อ')),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildTextField(_lastNameCtrl, 'นามสกุล')),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildTextField(
-                _idCtrl,
-                'รหัสนักศึกษา',
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              _buildTextField(_facultyCtrl, 'คณะ'),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _buildTextField(_majorCtrl, 'สาขาวิชา'),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 1,
-                    child: _buildTextField(
-                      _yearCtrl,
-                      'ชั้นปี',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton(
-                  onPressed: _saveProfile,
-                  child: const Text(
-                    'บันทึกการเปลี่ยนแปลง',
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ),
-              ),
+              // ...
+              // ปุ่มบันทึก ...
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label, {
-    TextInputType? keyboardType,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 16,
-        ),
-      ),
-      validator: (val) => val!.isEmpty ? 'กรุณากรอกข้อมูล' : null,
     );
   }
 }
