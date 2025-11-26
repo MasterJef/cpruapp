@@ -14,8 +14,7 @@ void main() async {
     // กรณีรันบนเว็บ (Chrome)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-        // ⚠️ เอาค่าจากหน้าเว็บ Firebase ของคุณมาใส่ตรงนี้นะครับ (ก๊อปจากที่เคยทำตะกี้)
-        apiKey: "AIzaSyADZx4zRvkQLg_ho1RBKGnP-L0xqXDpuM",
+        apiKey: "AIzaSyADZx4zRveKQLg_ho1RBkGIp-L0xqXDpuM",
         authDomain: "cprujobapp.firebaseapp.com",
         projectId: "cprujobapp",
         storageBucket: "cprujobapp.firebasestorage.app",

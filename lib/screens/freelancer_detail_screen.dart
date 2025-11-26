@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/mock_data.dart';
+// ✅ เปลี่ยนจาก mock_data เป็น freelancer_model
+import 'package:cprujobapp/models/freelancer_model.dart';
 
 class FreelancerDetailScreen extends StatelessWidget {
   final Freelancer freelancer;
@@ -14,7 +15,7 @@ class FreelancerDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // รูปโปรไฟล์วงกลม
+            // รูปโปรไฟล์
             Center(
               child: CircleAvatar(
                 radius: 60,
@@ -36,23 +37,18 @@ class FreelancerDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Rating Bar (ทำเองง่ายๆ)
+            // Rating
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ...List.generate(
-                  5,
-                  (index) => Icon(
-                    index < freelancer.rating.floor()
-                        ? Icons.star
-                        : Icons.star_border,
-                    color: Colors.amber,
-                  ),
-                ),
-                const SizedBox(width: 8),
+                const Icon(Icons.star, color: Colors.amber, size: 20),
+                const SizedBox(width: 4),
                 Text(
-                  '(${freelancer.rating})',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  '${freelancer.rating}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -71,37 +67,32 @@ class FreelancerDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                freelancer.bio,
-                style: const TextStyle(fontSize: 16, height: 1.5),
-              ),
+            Text(
+              freelancer.bio,
+              style: const TextStyle(fontSize: 16, height: 1.5),
             ),
 
             const SizedBox(height: 20),
-            // กล่องราคาเริ่มต้น
+            // ราคาเริ่มต้น
             Container(
               padding: const EdgeInsets.all(16),
-              width: double.infinity,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: Colors.orange.shade50,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'ราคาเริ่มต้น',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    ),
+                  const Text(
+                    'ราคาเริ่มต้น:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(
                     freelancer.startingPrice,
                     style: TextStyle(
-                      fontSize: 24,
+                      color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontSize: 18,
                     ),
                   ),
                 ],
@@ -111,18 +102,17 @@ class FreelancerDetailScreen extends StatelessWidget {
         ),
       ),
       // ปุ่มจ้างงาน
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        child: FilledButton.icon(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('ส่งข้อความหา ${freelancer.name} แล้ว!')),
-            );
-          },
-          icon: const Icon(Icons.chat_bubble_outline),
-          label: const Text('จ้างงานคนนี้ (Hire Me)'),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SizedBox(
+          height: 50,
+          child: FilledButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('ส่งคำขอจ้าง ${freelancer.name} แล้ว!')),
+              );
+            },
+            child: const Text('จ้างงานคนนี้'),
           ),
         ),
       ),

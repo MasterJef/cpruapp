@@ -63,8 +63,19 @@ class AuthService {
 
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      // 👇 เพิ่มบรรทัดนี้เพื่อดู Code Error ใน Terminal
+      print('🔥 Firebase Auth Error: code=${e.code}, message=${e.message}');
+
+      if (e.code == 'weak-password') {
+        return 'รหัสผ่านง่ายเกินไป (ต้อง 6 ตัวขึ้นไป)';
+      } else if (e.code == 'email-already-in-use') {
+        return 'อีเมลนี้มีคนใช้แล้ว';
+      } else if (e.code == 'invalid-email') {
+        return 'รูปแบบอีเมลไม่ถูกต้อง';
+      }
+      return e.message; // ส่งข้อความ Error เดิมกลับไป
     } catch (e) {
+      print('🔥 General Error: $e'); // ปริ้น Error ทั่วไปดูด้วย
       return 'เกิดข้อผิดพลาด: $e';
     }
   }
