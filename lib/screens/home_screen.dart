@@ -1,266 +1,114 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/job_model.dart'; // Import Model จริง
-import '../models/user_model.dart';
-import 'job_detail_screen.dart';
-import 'freelancer_detail_screen.dart';
-import 'login_screen.dart';
-import 'profile_screen.dart';
-import '../models/mock_data.dart'; // Import นี้ไว้สำหรับ Freelancer อย่างเดียว (ถ้าคุณยังแยกไฟล์อยู่)
+import 'package:firebase_core/firebase_core.dart'; // 1. ต้อง Import ตัวนี้
+import 'firebase_options.dart'; // 2. ต้อง Import ตัวนี้ (ที่ได้จากการ config)
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+import 'screens/home_screen.dart';
+import 'screens/post_selection_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/profile_screen.dart';
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
+// 3. เปลี่ยน void main() ธรรมดา ให้เป็น async
+void main() async {
+  // 4. ต้องใส่บรรทัดนี้ เพื่อให้ Flutter เตรียมตัวก่อนเริ่ม Firebase
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 5. สั่งเริ่มระบบ Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  runApp(const UniJobsApp());
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // ฟังก์ชัน Logout
-  void _logout() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ยืนยันออกจากระบบ'),
-        content: const Text('คุณต้องการออกจากระบบใช่หรือไม่?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text('ออก', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+class UniJobsApp extends StatelessWidget {
+  const UniJobsApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'UniJobs',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.orange,
+          brightness: Brightness.light,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.orange,
+          foregroundColor: Colors.white,
+        ),
+        fontFamily: 'Roboto',
       ),
+      // เช็คว่า User ล็อกอินค้างไว้ไหม (Optional: เดี๋ยวค่อยทำก็ได้ ตอนนี้เอาหน้า Login ก่อน)
+      home: const LoginScreen(),
     );
+  }
+}
+
+// ... (ส่วน MainNavigationWrapper ด้านล่างคงเดิมครับ) ...
+class MainNavigationWrapper extends StatefulWidget {
+  const MainNavigationWrapper({super.key});
+
+  @override
+  State<MainNavigationWrapper> createState() => _MainNavigationWrapperState();
+}
+
+class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const HistoryScreen(), // ใช้หน้า History ที่แก้แล้ว (ดึงจาก Firebase)
+    const ProfileScreen(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.orange,
-          centerTitle: true,
-          title: const Text(
-            'UniJobs',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: _logout,
-          ),
-          actions: [
-            GestureDetector(
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
-                  ),
-                );
-                setState(() {});
-              },
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: CircleAvatar(
-                  backgroundImage: NetworkImage(currentUser.imageUrl),
-                  radius: 18,
-                ),
-              ),
-            ),
-          ],
-          bottom: const TabBar(
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
-              Tab(icon: Icon(Icons.campaign), text: 'ประกาศงาน'),
-              Tab(icon: Icon(Icons.people), text: 'รวมยอดฝีมือ'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildRealJobList(context), // <--- ใช้ข้อมูลจริง
-            _buildFreelancerList(
-              context,
-            ), // <--- อันนี้ยัง Mock อยู่ (เพราะยังไม่ได้ทำระบบหลังบ้าน Freelancer)
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Widget ดึงข้อมูลจริงจาก Firestore
-  Widget _buildRealJobList(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('jobs')
-          .orderBy('created_at', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return const Center(child: Text('โหลดข้อมูลล้มเหลว'));
-        if (snapshot.connectionState == ConnectionState.waiting)
-          return const Center(child: CircularProgressIndicator());
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(
-            child: Text(
-              'ยังไม่มีประกาศงาน',
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            // ใช้ Factory Method แปลงข้อมูลสวยๆ
-            Job job = Job.fromFirestore(snapshot.data!.docs[index]);
-
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(10),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    job.imageUrl,
-                    width: 60,
-                    height: 60,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => Container(
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.broken_image),
-                    ),
-                  ),
-                ),
-                title: Text(
-                  job.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      job.location,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                    Text(
-                      job.price,
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey,
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => JobDetailScreen(job: job),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ส่วน Freelancer (ยังคงเดิมไว้ก่อน หรือจะย้าย Mock Data มาใส่ไฟล์นี้เลยก็ได้)
-  Widget _buildFreelancerList(BuildContext context) {
-    // ต้องมี mockFreelancers อยู่ใน mock_data.dart หรือประกาศในนี้
-    if (mockFreelancers.isEmpty)
-      return const Center(child: Text('ไม่มีข้อมูล Freelancer'));
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: mockFreelancers.length,
-      itemBuilder: (context, index) {
-        final freelancer = mockFreelancers[index];
-        return InkWell(
-          onTap: () => Navigator.push(
+    return Scaffold(
+      body: _screens[_selectedIndex],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => FreelancerDetailScreen(freelancer: freelancer),
+              builder: (context) => const PostSelectionScreen(),
             ),
+          );
+        },
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, size: 30),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        indicatorColor: Colors.orange.shade200,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'หน้าแรก',
           ),
-          child: Card(
-            elevation: 2,
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Image.network(
-                    freelancer.imageUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        freelancer.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                        maxLines: 1,
-                      ),
-                      Text(
-                        freelancer.skill,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                        maxLines: 1,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, size: 14, color: Colors.amber),
-                          Text(' ${freelancer.rating}'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: 'ประวัติ',
           ),
-        );
-      },
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'โปรไฟล์',
+          ),
+        ],
+      ),
     );
   }
 }
