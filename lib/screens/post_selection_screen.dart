@@ -1,3 +1,4 @@
+import 'package:cprujobapp/screens/post_job_form.dart';
 import 'package:flutter/material.dart';
 
 class PostSelectionScreen extends StatelessWidget {
@@ -46,8 +47,11 @@ class PostSelectionScreen extends StatelessWidget {
                 icon: Icons.person_add_alt_1,
                 color: Colors.blueGrey,
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ไปหน้าสร้างโปรไฟล์...')),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PostJobForm(),
+                    ),
                   );
                 },
               ),

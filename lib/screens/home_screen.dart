@@ -1,11 +1,12 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
-import '../models/mock_data.dart';
-import '../models/user_model.dart'; // import user model
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import '../models/user_model.dart';
+import '../models/mock_data.dart'; // ยังคงใช้ Mock Data สำหรับ Freelancer Tab
 import 'job_detail_screen.dart';
 import 'freelancer_detail_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'post_job_form.dart'; // Import หน้าโพสต์งาน
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,25 +55,20 @@ class _HomeScreenState extends State<HomeScreen> {
             'UniJobs',
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
-
-          // 1. ปุ่ม Logout ด้านซ้าย
           leading: IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: _logout,
           ),
-
-          // 2. รูป Profile ด้านขวา (กดแล้วไปหน้า Profile)
           actions: [
             GestureDetector(
               onTap: () async {
-                // กดแล้วไปหน้า Profile และรอ Refresh เมื่อกลับมา
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const ProfileScreen(),
                   ),
                 );
-                setState(() {}); // Refresh Header เผื่อเปลี่ยนรูป
+                setState(() {});
               },
               child: Padding(
                 padding: const EdgeInsets.only(right: 16.0),
@@ -83,7 +79,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-
           bottom: const TabBar(
             indicatorColor: Colors.white,
             labelColor: Colors.white,
@@ -95,74 +90,149 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         body: TabBarView(
-          children: [_buildJobList(context), _buildFreelancerList(context)],
+          children: [
+            _buildFirestoreJobList(context), // <--- ใช้ Function ใหม่
+            _buildFreelancerList(context), // อันนี้ใช้ Mock เหมือนเดิม
+          ],
         ),
       ),
     );
   }
 
-  // --- ส่วน List Code เดิม (ย่อไว้) ---
-  Widget _buildJobList(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: mockJobs.length,
-      itemBuilder: (context, index) {
-        final job = mockJobs[index];
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(10),
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                job.imageUrl,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-              ),
-            ),
-            title: Text(
-              job.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  // Widget สำหรับดึงข้อมูลจาก Firestore แบบ Realtime
+  Widget _buildFirestoreJobList(BuildContext context) {
+    // เข้าถึง Collection 'jobs' เรียงตาม created_at จากใหม่ไปเก่า
+    final Stream<QuerySnapshot> _jobsStream = FirebaseFirestore.instance
+        .collection('jobs')
+        .orderBy('created_at', descending: true)
+        .snapshots();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: _jobsStream,
+      builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+        // 1. สถานะ Error
+        if (snapshot.hasError) {
+          return const Center(child: Text('เกิดข้อผิดพลาดในการโหลดข้อมูล'));
+        }
+
+        // 2. สถานะ Loading
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        // 3. ไม่มีข้อมูล
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 4),
+                Icon(Icons.inbox, size: 60, color: Colors.grey),
+                SizedBox(height: 10),
                 Text(
-                  job.location,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  job.price,
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'ยังไม่มีประกาศงานขณะนี้',
+                  style: TextStyle(color: Colors.grey),
                 ),
               ],
             ),
-            trailing: const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: Colors.grey,
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-              );
-            },
-          ),
+          );
+        }
+
+        // 4. มีข้อมูล -> แสดงผล ListView
+        return ListView(
+          padding: const EdgeInsets.all(12),
+          children: snapshot.data!.docs.map((DocumentSnapshot document) {
+            Map<String, dynamic> data =
+                document.data()! as Map<String, dynamic>;
+
+            // แปลงข้อมูล Firestore เป็น Object Job (เพื่อส่งไปหน้า Detail)
+            // หมายเหตุ: ตรงนี้เราสร้าง Job Object ขึ้นมาเองเพื่อให้เข้ากับหน้า JobDetailScreen เดิม
+            Job job = Job(
+              id: document.id,
+              title: data['title'] ?? 'ไม่ระบุชื่อ',
+              description: data['description'] ?? '-',
+              price: '${data['price']} บาท', // แปลงตัวเลขเป็น String พร้อมหน่วย
+              location: data['location'] ?? 'ไม่ระบุ',
+              imageUrl: data['imageUrl'] ?? 'https://via.placeholder.com/150',
+            );
+
+            return Card(
+              elevation: 2,
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(10),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    job.imageUrl,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.image_not_supported),
+                  ),
+                ),
+                title: Text(
+                  job.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            job.location,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      job.price,
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+                onTap: () {
+                  // ส่ง Object Job ไปหน้า Detail
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => JobDetailScreen(job: job),
+                    ),
+                  );
+                },
+              ),
+            );
+          }).toList(),
         );
       },
     );
   }
 
+  // --- ส่วน Freelancer ใช้ Mock Data เดิม (ไม่ได้แก้) ---
   Widget _buildFreelancerList(BuildContext context) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
