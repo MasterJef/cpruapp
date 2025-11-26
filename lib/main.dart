@@ -1,13 +1,18 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/home_screen.dart';
 import 'screens/post_selection_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/history_screen.dart'; // import หน้าประวัติ
 import 'screens/profile_screen.dart'; // import หน้าโปรไฟล์
 
-void main() {
-  runApp(const UniJobsApp());
+void main() async {
+  // 1. เติม async
+  WidgetsFlutterBinding.ensureInitialized(); // 2. บรรทัดนี้ต้องมาก่อนเพื่อน
+  await Firebase.initializeApp(); // 3. ปลุก Firebase ให้ตื่น
+
+  runApp(const UniJobsApp()); // (หรือชื่อคลาสหลักของคุณ)
 }
 
 class UniJobsApp extends StatelessWidget {
