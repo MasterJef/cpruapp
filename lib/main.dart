@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'screens/home_screen.dart';
 import 'screens/post_selection_screen.dart';
 import 'screens/login_screen.dart';
@@ -10,9 +11,24 @@ import 'screens/profile_screen.dart'; // import หน้าโปรไฟล�
 void main() async {
   // 1. เติม async
   WidgetsFlutterBinding.ensureInitialized(); // 2. บรรทัดนี้ต้องมาก่อนเพื่อน
-  await Firebase.initializeApp(); // 3. ปลุก Firebase ให้ตื่น
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyADZx4zRvkQLg_ho1RBKGnP-L0xqXDpuM", // ค่าจากรูปคุณ
+        authDomain: "cprujobapp.firebaseapp.com",
+        projectId: "cprujobapp",
+        storageBucket: "cprujobapp.firebasestorage.app",
+        messagingSenderId: "417559432644",
+        appId: "1:417559432644:web:9dfcd7fceb260d4ecf6891",
+        measurementId: "G-9HS6ZY2G0Y", // (ใส่หรือไม่ใส่ก็ได้)
+      ),
+    );
+  } else {
+    // ของ Android/iOS ไม่ต้องแก้
+    await Firebase.initializeApp();
+  }
 
-  runApp(const UniJobsApp()); // (หรือชื่อคลาสหลักของคุณ)
+  runApp(const UniJobsApp());
 }
 
 class UniJobsApp extends StatelessWidget {
