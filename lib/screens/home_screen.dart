@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cprujobapp/models/job_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ 1. เพิ่ม import นี้
 
@@ -7,7 +8,7 @@ import 'package:cprujobapp/screens/login_screen.dart';
 import 'package:cprujobapp/screens/profile_screen.dart';
 import 'package:cprujobapp/screens/job_detail_screen.dart';
 import 'package:cprujobapp/screens/freelancer_detail_screen.dart';
-import 'package:cprujobapp/models/mock_data.dart'; // เพื่อใช้ class Job และ Freelancer
+// เพิ่มบรรทัดนี้ครับ (เช็คชื่อไฟล์ให้ตรงกับที่คุณมี)// เพื่อใช้ class Job และ Freelancer
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -139,18 +140,8 @@ class _HomeScreenState extends State<HomeScreen> {
             Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
             // สร้าง Job แบบ Manual ตรงนี้เลย (กัน Error ที่ Model)
-            Job job = Job(
-              id: doc.id,
-              title: data['title'] ?? 'ไม่มีชื่อ',
-              description: data['description'] ?? '',
-              price:
-                  data['price']?.toString() ?? '0', // แปลงเป็น String กันเหนียว
-              location: data['location'] ?? '',
-              imageUrl:
-                  'https://cdn-icons-png.flaticon.com/512/3081/3081559.png', // ใส่รูป Mock ไปก่อนเพราะในฟอร์มเรายังไม่มีให้อัปโหลด
-              category: data['category'] ?? 'General',
-              type: 'job',
-            );
+            // ใช้ Factory ที่เราเพิ่งสร้าง
+            Job job = Job.fromFirestore(snapshot.data!.docs[index]);
 
             return Card(
               elevation: 2,
