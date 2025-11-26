@@ -1,8 +1,8 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
-import '../main.dart';
 import 'register_screen.dart';
 import '../services/auth_service.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,9 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => const MainNavigationWrapper(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
           );
         }
       } else {
