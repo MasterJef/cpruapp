@@ -1,4 +1,5 @@
 // lib/screens/home_screen.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -50,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -78,8 +80,17 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: CircleAvatar(
-                  backgroundImage: NetworkImage(currentUser.imageUrl),
                   radius: 18,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: NetworkImage(
+                    // เช็คว่ามีรูปไหม ถ้าไม่มีให้ใช้รูปสำรอง
+                    (user?.photoURL != null && user!.photoURL!.isNotEmpty)
+                        ? user.photoURL!
+                        : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                  ),
+                  onBackgroundImageError: (_, __) {
+                    // ถ้าโหลดรูปไม่ขึ้นจริงๆ ให้เงียบไว้ (มันจะโชว์สีพื้นหลังแทน)
+                  },
                 ),
               ),
             ),

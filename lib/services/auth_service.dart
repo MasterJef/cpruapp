@@ -28,8 +28,9 @@ class AuthService {
       );
 
       String uid = cred.user!.uid;
+      // แก้บรรทัดนี้
       String defaultImage =
-          'https://firebasestorage.googleapis.com/v0/b/placeholder.appspot.com/o/default_profile.png?alt=media'; // Mock รูปไปก่อน
+          'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
       // 1.2 เตรียมข้อมูล User (✅ แก้ตรงนี้: ใส่ uid และ email)
       UserProfile newUser = UserProfile(
