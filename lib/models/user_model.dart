@@ -1,6 +1,6 @@
-// lib/models/user_model.dart
-
 class UserProfile {
+  String uid; // ✅ เพิ่มแล้ว
+  String email; // ✅ เพิ่มแล้ว
   String firstName;
   String lastName;
   String studentId;
@@ -10,6 +10,8 @@ class UserProfile {
   String imageUrl;
 
   UserProfile({
+    required this.uid,
+    required this.email,
     required this.firstName,
     required this.lastName,
     required this.studentId,
@@ -20,14 +22,15 @@ class UserProfile {
   });
 }
 
-// สร้างตัวแปร Global เพื่อเก็บข้อมูล User ปัจจุบัน (Mock Data)
+// 🔥 ตัวแปร Global: ประกาศไว้ตรงนี้ที่เดียว เรียกใช้ได้ทั้งแอพ
 UserProfile currentUser = UserProfile(
-  firstName: 'นักศึกษา',
-  lastName: 'ตัวอย่าง',
-  studentId: '641234567',
-  faculty: 'วิทยาการจัดการ',
-  major: 'นิเทศศาสตร์',
-  year: '3',
-  imageUrl:
-      'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400',
+  uid: '', // ✅ ใส่ค่าเริ่มต้น
+  email: '', // ✅ ใส่ค่าเริ่มต้น
+  firstName: '',
+  lastName: '',
+  studentId: '',
+  faculty: '',
+  major: '',
+  year: '',
+  imageUrl: '',
 );

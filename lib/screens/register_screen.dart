@@ -1,7 +1,8 @@
 // lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
 import '../main.dart';
-import '../services/auth_service.dart'; // Import Service
+import '../services/auth_service.dart';
+import 'home_screen.dart'; // Import Service
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -52,9 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ).showSnackBar(const SnackBar(content: Text('สมัครสมาชิกสำเร็จ!')));
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(
-              builder: (context) => const MainNavigationWrapper(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
             (route) => false,
           );
         }
