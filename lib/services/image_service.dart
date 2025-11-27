@@ -12,8 +12,8 @@ class ImageService {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70, // บีบอัดรูป
-        maxWidth: 1024, // จำกัดขนาด
+        imageQuality: 50, // บีบอัดรูป
+        maxWidth: 800, // จำกัดขนาด
       );
       return image;
     } catch (e) {
@@ -23,9 +23,11 @@ class ImageService {
   }
 
   // 2. ฟังก์ชันอัปโหลดรูป (รองรับทั้ง Web และ Mobile)
+  // ... (โค้ดส่วนบนเหมือนเดิม)
+
   Future<String?> uploadImage(XFile image, String folderPath) async {
     try {
-      // สร้างชื่อไฟล์ไม่ซ้ำกัน
+      print('--- START UPLOAD ---'); // 1. เริ่มทำงานไหม
       String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       Reference ref = FirebaseStorage.instance.ref().child(
         '$folderPath/$fileName',
@@ -34,26 +36,39 @@ class ImageService {
       UploadTask uploadTask;
 
       if (kIsWeb) {
-        // --- สำหรับ WEB: อัปโหลดด้วย Bytes (Data) ---
-        // XFile บนเว็บอ่านเป็น bytes ได้เลย
+        print('--- Mode: WEB ---');
         final bytes = await image.readAsBytes();
+        print(
+          '--- Read Bytes Done (${bytes.length} bytes) ---',
+        ); // 2. อ่านไฟล์เสร็จไหม
         uploadTask = ref.putData(
           bytes,
           SettableMetadata(contentType: 'image/jpeg'),
         );
       } else {
-        // --- สำหรับ MOBILE: อัปโหลดด้วย File ---
-        // แปลง XFile path เป็น File ของ dart:io
+        print('--- Mode: MOBILE ---');
         File ioFile = File(image.path);
         uploadTask = ref.putFile(ioFile);
       }
 
-      // รอจนเสร็จแล้วขอ URL
+      print('--- Uploading... (Waiting) ---'); // 3. กำลังส่งข้อมูล
+
+      // เพิ่ม Listener เพื่อดู % การอัปโหลด
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        double progress =
+            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        print('Upload is $progress% done');
+      });
+
       TaskSnapshot snapshot = await uploadTask;
+      print('--- Upload Done! ---'); // 4. อัปโหลดเสร็จ
+
       String downloadUrl = await snapshot.ref.getDownloadURL();
+      print('--- Got URL: $downloadUrl ---'); // 5. ได้ URL
+
       return downloadUrl;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      print('!!! ERROR UPLOADING: $e'); // ถ้า Error จะโชว์ตรงนี้
       return null;
     }
   }
