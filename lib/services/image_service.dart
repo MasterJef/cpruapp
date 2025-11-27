@@ -1,5 +1,6 @@
 // lib/services/image_service.dart
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -26,27 +27,26 @@ class ImageService {
 
   // 2. ฟังก์ชันอัปโหลดรูปขึ้น Firebase Storage
   // pathFolder: เช่น 'job_images' หรือ 'profile_images'
-  static Future<String?> uploadImage(File imageFile, String pathFolder) async {
+  // ตัวอย่าง ImageService.uploadImage ที่รองรับ Web
+  static Future<String?> uploadImage(XFile imageFile, String pathFolder) async {
     try {
-      // สร้างชื่อไฟล์ไม่ซ้ำกันด้วย Timestamp
       String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      // สร้าง Reference ไปยังตำแหน่งที่จะเก็บ
       Reference ref = FirebaseStorage.instance.ref().child(
         '$pathFolder/$fileName',
       );
 
-      // เริ่มอัปโหลด
-      UploadTask uploadTask = ref.putFile(imageFile);
+      // Upload logic ที่รองรับทั้ง Web และ Mobile
+      if (kIsWeb) {
+        // สำหรับ Web ให้อัปโหลดเป็น Bytes
+        await ref.putData(await imageFile.readAsBytes());
+      } else {
+        // สำหรับ Mobile ให้อัปโหลดเป็น File
+        await ref.putFile(File(imageFile.path));
+      }
 
-      // รอจนเสร็จ
-      TaskSnapshot snapshot = await uploadTask;
-
-      // ขอ URL สำหรับดาวน์โหลดกลับมา
-      String downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
+      return await ref.getDownloadURL();
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      debugPrint('Error: $e');
       return null;
     }
   }

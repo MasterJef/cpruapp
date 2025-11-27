@@ -23,7 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ฟังก์ชันเปลี่ยนรูปโปรไฟล์
   Future<void> _updateProfilePicture() async {
     // 1. เลือกรูป
-    File? imageFile = await ImageService.pickImage();
+    XFile? imageFile = await ImageService().pickImage();
     if (imageFile == null) return;
 
     setState(() => _isUploading = true);
