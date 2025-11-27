@@ -1,11 +1,16 @@
 // lib/screens/post_job_screen.dart
-
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/job_model.dart'; // Import Model
+import '../services/image_service.dart'; // Import Service ที่เพิ่งสร้าง
+
 class PostJobScreen extends StatefulWidget {
-  const PostJobScreen({super.key});
+  final Job? job; // ถ้ามีค่าส่งมา = โหมดแก้ไข, ถ้า null = โหมดสร้างใหม่
+
+  const PostJobScreen({super.key, this.job});
 
   @override
   State<PostJobScreen> createState() => _PostJobScreenState();
@@ -15,19 +20,42 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  // Controllers สำหรับรับค่าจากฟอร์ม
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _descController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _locationController = TextEditingController();
+  // Controllers
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _locationController = TextEditingController();
 
-  // ตัวแปรสำหรับ Dropdown
+  // Variables
   String? _selectedCategory;
   final List<String> _categories = ['อาหาร', 'ขนของ', 'ติวหนังสือ', 'ทั่วไป'];
 
+  File? _imageFile; // รูปใหม่ที่เพิ่งเลือกจากเครื่อง
+  String? _existingImageUrl; // รูปเดิม (กรณีแก้ไข)
+
+  @override
+  void initState() {
+    super.initState();
+    // ถ้าเป็นโหมดแก้ไข ให้ดึงข้อมูลเก่ามาใส่ Form
+    if (widget.job != null) {
+      _titleController.text = widget.job!.title;
+      _descController.text = widget.job!.description;
+      // ดึงตัวเลขออกจาก string เช่น "100 บาท" -> "100"
+      _priceController.text = widget.job!.price.replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
+      _locationController.text = widget.job!.location;
+      _existingImageUrl = widget.job!.imageUrl;
+
+      // เช็คว่า Category เดิมมีอยู่ใน list หรือไม่ (กัน Error)
+      // (Logic นี้สมมติว่าไม่ได้เก็บ Category ใน Job Model แต่ถ้ามีต้องดึงมาใส่ด้วย)
+      // _selectedCategory = widget.job!.category;
+    }
+  }
+
   @override
   void dispose() {
-    // คืน memory เมื่อปิดหน้านี้
     _titleController.dispose();
     _descController.dispose();
     _priceController.dispose();
@@ -35,247 +63,256 @@ class _PostJobScreenState extends State<PostJobScreen> {
     super.dispose();
   }
 
-  // ฟังก์ชันบันทึกข้อมูลลง Firestore
-  Future<void> _submitPost() async {
-    if (_formKey.currentState!.validate()) {
-      // 1. ตรวจสอบว่าเลือกหมวดหมู่หรือยัง
-      if (_selectedCategory == null) {
+  // ฟังก์ชันเลือกรูป
+  Future<void> _pickImage() async {
+    File? file = await ImageService.pickImage();
+    if (file != null) {
+      setState(() {
+        _imageFile = file;
+      });
+    }
+  }
+
+  // ฟังก์ชันบันทึก (Add หรือ Update)
+  Future<void> _saveJob() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedCategory == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')));
+      return;
+    }
+
+    // กรณีสร้างใหม่ ต้องมีรูป (หรือจะอนุโลมก็ได้แล้วแต่ requirement)
+    if (widget.job == null && _imageFile == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรุณาเพิ่มรูปภาพประกอบ')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 1. จัดการรูปภาพ
+      String imageUrl =
+          _existingImageUrl ?? 'https://via.placeholder.com/300'; // Default
+
+      // ถ้ามีการเลือกรูปใหม่ ให้อัปโหลด
+      if (_imageFile != null) {
+        String? uploadedUrl = await ImageService.uploadImage(
+          _imageFile!,
+          'job_images',
+        );
+        if (uploadedUrl != null) {
+          imageUrl = uploadedUrl;
+        }
+      }
+
+      final jobData = {
+        'title': _titleController.text.trim(),
+        'description': _descController.text.trim(),
+        'price': '${_priceController.text.trim()} บาท',
+        'location': _locationController.text.trim(),
+        'category': _selectedCategory,
+        'imageUrl': imageUrl,
+        'type': 'job',
+      };
+
+      if (widget.job == null) {
+        // --- CREATE MODE ---
+        await FirebaseFirestore.instance.collection('jobs').add({
+          ...jobData,
+          'status': 'open',
+          'created_at': FieldValue.serverTimestamp(),
+          'createdBy': user.uid,
+        });
+        if (mounted)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('โพสต์งานสำเร็จ!')));
+      } else {
+        // --- EDIT MODE ---
+        await FirebaseFirestore.instance
+            .collection('jobs')
+            .doc(widget.job!.id)
+            .update({
+              ...jobData,
+              'updated_at':
+                  FieldValue.serverTimestamp(), // Optional: เก็บเวลาแก้ไข
+            });
+        if (mounted)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('แก้ไขงานสำเร็จ!')));
+      }
+
+      if (mounted) Navigator.pop(context); // ปิดหน้าจอ
+    } catch (e) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('กรุณาเลือกหมวดหมู่งาน')));
-        return;
-      }
-
-      // 2. ตรวจสอบ User ปัจจุบัน
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เกิดข้อผิดพลาด: ไม่พบข้อมูลผู้ใช้')),
-        );
-        return;
-      }
-
-      setState(() => _isLoading = true);
-
-      try {
-        // 3. เตรียมข้อมูล
-        // ใช้รูป Mock ตามที่ขอ (ในอนาคตค่อยเปลี่ยนเป็นระบบอัปโหลดรูป)
-        String mockImage =
-            'https://cdn-icons-png.flaticon.com/512/3081/3081559.png';
-
-        // 4. บันทึกลง Firestore
-        await FirebaseFirestore.instance.collection('jobs').add({
-          'title': _titleController.text.trim(),
-          'description': _descController.text.trim(),
-          'price':
-              '${_priceController.text.trim()} บาท', // เก็บเป็น String พร้อมหน่วย
-          'location': _locationController.text.trim(),
-          'category': _selectedCategory,
-          'imageUrl': mockImage,
-          'type': 'job', // ระบุประเภทว่าเป็นงานจ้าง
-          'created_at': FieldValue.serverTimestamp(), // เวลาจาก Server
-          'createdBy': user.uid, // เก็บ UID คนโพสต์เพื่อดึงประวัติได้
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('โพสต์งานเรียบร้อยแล้ว!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pop(context); // ปิดหน้าจอ
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('เกิดข้อผิดพลาด: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      }
+        ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // GestureDetector เพื่อให้กดพื้นที่ว่างแล้วคีย์บอร์ดหุบลง
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('โพสต์งานใหม่'),
-          backgroundColor: Colors.orange,
-          foregroundColor: Colors.white,
-        ),
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.orange),
-              )
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'รายละเอียดงาน',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+    bool isEditMode = widget.job != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditMode ? 'แก้ไขประกาศงาน' : 'โพสต์งานใหม่'),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // --- ส่วนเลือกรูปภาพ ---
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        height: 200,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                          image: _imageFile != null
+                              ? DecorationImage(
+                                  image: FileImage(_imageFile!),
+                                  fit: BoxFit.cover,
+                                )
+                              : (_existingImageUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(_existingImageUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null),
                         ),
+                        child: (_imageFile == null && _existingImageUrl == null)
+                            ? const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_a_photo,
+                                    size: 50,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'แตะเพื่อเพิ่มรูปภาพ',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              )
+                            : null,
                       ),
-                      const SizedBox(height: 20),
+                    ),
+                    const SizedBox(height: 20),
 
-                      // 1. ชื่องาน
-                      _buildTextField(
-                        controller: _titleController,
-                        label: 'ชื่องาน',
-                        hint: 'เช่น ฝากซื้อข้าว, หาคนช่วยขนของ',
-                        icon: Icons.title,
-                      ),
-                      const SizedBox(height: 16),
+                    _buildTextField(_titleController, 'ชื่องาน', Icons.title),
+                    const SizedBox(height: 16),
 
-                      // 2. หมวดหมู่ (Dropdown)
-                      DropdownButtonFormField<String>(
-                        decoration: _inputDecoration(
-                          'หมวดหมู่',
-                          Icons.category,
-                        ),
-                        value: _selectedCategory,
-                        items: _categories.map((String category) {
-                          return DropdownMenuItem<String>(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
-                        onChanged: (newValue) {
-                          setState(() {
-                            _selectedCategory = newValue;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      decoration: _inputDecoration('หมวดหมู่', Icons.category),
+                      value: _selectedCategory,
+                      items: _categories
+                          .map(
+                            (c) => DropdownMenuItem(value: c, child: Text(c)),
+                          )
+                          .toList(),
+                      onChanged: (val) =>
+                          setState(() => _selectedCategory = val),
+                    ),
+                    const SizedBox(height: 16),
 
-                      // 3. ค่าจ้าง และ สถานที่ (วางคู่กัน)
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _buildTextField(
-                              controller: _priceController,
-                              label: 'ค่าจ้าง (บาท)',
-                              hint: 'เช่น 100',
-                              icon: Icons.attach_money,
-                              keyboardType: TextInputType.number,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 3,
-                            child: _buildTextField(
-                              controller: _locationController,
-                              label: 'สถานที่',
-                              hint: 'เช่น หอ 3, โรงอาหาร',
-                              icon: Icons.location_on,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // 4. รายละเอียด (Multiline)
-                      _buildTextField(
-                        controller: _descController,
-                        label: 'รายละเอียดเพิ่มเติม',
-                        hint: 'ระบุรายละเอียดให้ครบถ้วน...',
-                        icon: Icons.description,
-                        maxLines: 5,
-                      ),
-                      const SizedBox(height: 30),
-
-                      // ปุ่มโพสต์
-                      SizedBox(
-                        height: 50,
-                        child: FilledButton.icon(
-                          onPressed: _submitPost,
-                          icon: const Icon(Icons.send),
-                          label: const Text(
-                            'โพสต์ประกาศงาน',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _buildTextField(
+                            _priceController,
+                            'ค่าจ้าง (บาท)',
+                            Icons.attach_money,
+                            isNumber: true,
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 3,
+                          child: _buildTextField(
+                            _locationController,
+                            'สถานที่',
+                            Icons.location_on,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    _buildTextField(
+                      _descController,
+                      'รายละเอียด',
+                      Icons.description,
+                      maxLines: 5,
+                    ),
+                    const SizedBox(height: 30),
+
+                    SizedBox(
+                      height: 50,
+                      child: FilledButton.icon(
+                        onPressed: _saveJob,
+                        icon: Icon(isEditMode ? Icons.save : Icons.send),
+                        label: Text(
+                          isEditMode ? 'บันทึกการแก้ไข' : 'โพสต์ประกาศงาน',
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.orange,
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-      ),
+            ),
     );
   }
 
-  // Widget Helper สำหรับสร้าง TextField สวยๆ ลดโค้ดซ้ำ
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    String? hint,
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      decoration: _inputDecoration(label, icon, hint: hint),
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'กรุณาระบุ$label';
-        }
-        return null;
-      },
-    );
-  }
-
-  // Style Decoration ที่ใช้ร่วมกัน
-  InputDecoration _inputDecoration(
+  Widget _buildTextField(
+    TextEditingController ctrl,
     String label,
     IconData icon, {
-    String? hint,
+    bool isNumber = false,
+    int maxLines = 1,
   }) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      maxLines: maxLines,
+      decoration: _inputDecoration(label, icon),
+      validator: (val) => val == null || val.isEmpty ? 'กรุณาระบุ$label' : null,
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      hintText: hint,
       prefixIcon: Icon(icon, color: Colors.orange),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.orange, width: 2),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       filled: true,
       fillColor: Colors.grey.shade50,
     );

@@ -1,19 +1,72 @@
-import 'package:cprujobapp/screens/my_jobs_screen.dart';
+// lib/screens/profile_screen.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
-import '../models/user_model.dart'; // เพื่อเรียกใช้ currentUser
-import '../services/auth_service.dart'; // เพื่อเรียก Logout
-import 'login_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class ProfileScreen extends StatelessWidget {
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
+import '../services/image_service.dart'; // Import Image Service
+import 'login_screen.dart';
+import 'my_jobs_screen.dart';
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  // ฟังก์ชันออกจากระบบ
-  void _handleLogout(BuildContext context) async {
-    // เรียก Service เพื่อ Sign out จาก Firebase
-    await AuthService().logout();
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-    if (context.mounted) {
-      // เคลียร์ Stack หน้าเก่าทิ้งทั้งหมด แล้วไปหน้า Login
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isUploading = false;
+
+  // ฟังก์ชันเปลี่ยนรูปโปรไฟล์
+  Future<void> _updateProfilePicture() async {
+    // 1. เลือกรูป
+    File? imageFile = await ImageService.pickImage();
+    if (imageFile == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // 2. อัปโหลดรูป
+      String? downloadUrl = await ImageService.uploadImage(
+        imageFile,
+        'user_profiles/${user.uid}',
+      );
+
+      if (downloadUrl != null) {
+        // 3. อัปเดต Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'imageUrl': downloadUrl});
+
+        // 4. อัปเดต Global Variable (เพื่อให้หน้าอื่นเห็นรูปใหม่ทันที)
+        currentUser.imageUrl = downloadUrl;
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('อัปเดตรูปโปรไฟล์เรียบร้อย')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  void _handleLogout() async {
+    await AuthService().logout();
+    if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -24,15 +77,14 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // สีธีมหลัก
     final primaryColor = Theme.of(context).primaryColor;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50], // พื้นหลังสีอ่อนขรึมๆ
+      backgroundColor: Colors.grey[50],
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- ส่วน Header ---
+            // --- Header ---
             Container(
               padding: const EdgeInsets.only(top: 60, bottom: 30),
               decoration: BoxDecoration(
@@ -51,24 +103,60 @@ class ProfileScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  // รูปโปรไฟล์
+                  // รูปโปรไฟล์ + ปุ่มแก้ไข
                   Center(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
-                      ),
-                      child: CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        backgroundImage: NetworkImage(currentUser.imageUrl),
-                        onBackgroundImageError:
-                            (_, __) {}, // กัน Error ถ้ารูปพัง
-                      ),
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                          ),
+                          child: _isUploading
+                              ? const CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.white,
+                                  child: CircularProgressIndicator(),
+                                )
+                              : CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.white,
+                                  backgroundImage: NetworkImage(
+                                    currentUser.imageUrl,
+                                  ),
+                                  onBackgroundImageError: (_, __) {},
+                                ),
+                        ),
+                        // ปุ่มกล้องถ่ายรูป
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: _updateProfilePicture, // กดแล้วเปลี่ยนรูป
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    blurRadius: 5,
+                                    color: Colors.black26,
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.camera_alt,
+                                color: primaryColor,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // ชื่อ-นามสกุล
                   Text(
                     '${currentUser.firstName} ${currentUser.lastName}',
                     style: const TextStyle(
@@ -78,7 +166,6 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  // รหัสนักศึกษา / อีเมล (สมมติว่าใช้อีเมลเป็น ID หรือโชว์ Faculty แทนก็ได้)
                   Text(
                     '${currentUser.faculty} | ${currentUser.studentId}',
                     style: TextStyle(
@@ -89,55 +176,38 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
 
-            // --- ส่วนเมนู (Menu Items) ---
+            // --- Menus ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: [
-                  // 1. เมนูประกาศงานของฉัน
                   _buildMenuItem(
                     context,
                     icon: Icons.assignment_ind_rounded,
                     title: 'ประกาศงานของฉัน (My Jobs)',
                     subtitle: 'ดูรายการงานที่คุณเคยโพสต์ไว้',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MyJobsScreen(),
-                        ),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MyJobsScreen(),
+                      ),
+                    ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // 2. เมนูอื่นๆ (Placeholder เผื่ออนาคต)
                   _buildMenuItem(
                     context,
                     icon: Icons.settings,
                     title: 'ตั้งค่า (Settings)',
                     subtitle: 'แก้ไขข้อมูลส่วนตัว, เปลี่ยนรหัสผ่าน',
-                    onTap: () {
-                      // ยังไม่ได้ทำหน้า Edit Profile
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('ฟีเจอร์นี้กำลังพัฒนา...'),
-                        ),
-                      );
-                    },
+                    onTap: () {},
                   ),
-
                   const SizedBox(height: 40),
-
-                  // 3. ปุ่มออกจากระบบ
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () => _handleLogout(context),
+                      onPressed: _handleLogout,
                       icon: const Icon(Icons.logout),
                       label: const Text('ออกจากระบบ'),
                       style: OutlinedButton.styleFrom(
@@ -159,7 +229,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // Helper Widget สร้างเมนูสวยๆ
   Widget _buildMenuItem(
     BuildContext context, {
     required IconData icon,
