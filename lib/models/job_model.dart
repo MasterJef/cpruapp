@@ -1,3 +1,4 @@
+// lib/models/job_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Job {
@@ -7,10 +8,10 @@ class Job {
   final String price;
   final String location;
   final String imageUrl;
-  final String createdBy;
-  // 👇 เพิ่ม 2 ตัวนี้เพื่อให้โค้ดไม่ Error
-  final String category;
-  final String type;
+  final String createdBy; // UID ของคนโพสต์
+  final String status; // 'open' = ว่าง, 'accepted' = มีคนรับแล้ว
+  final String? acceptedBy; // UID ของคนรับงาน (อาจจะเป็น null ได้)
+  final DateTime? createdAt;
 
   Job({
     required this.id,
@@ -20,29 +21,31 @@ class Job {
     required this.location,
     required this.imageUrl,
     required this.createdBy,
-    required this.category, // ✅ ต้องมี this.
-    required this.type, // ✅ ต้องมี this.
+    required this.status,
+    this.acceptedBy,
+    this.createdAt,
   });
 
-  // Factory Constructor: แปลงข้อมูลจาก Firebase มาเป็น Job Object
+  // Factory แปลงข้อมูลจาก Firestore เป็น Object
   factory Job.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
     return Job(
       id: doc.id,
-      title: data['title'] ?? 'ไม่ระบุชื่องาน',
+      title: data['title'] ?? 'ไม่ระบุชื่อ',
       description: data['description'] ?? '',
-      // ⚠️ แนะนำ: ให้เก็บแค่ตัวเลข (เช่น "100") อย่าเพิ่งใส่คำว่า "บาท" ในนี้
-      // เพราะหน้า Home เราใส่เครื่องหมาย ฿ ไว้แล้ว เดี๋ยวจะกลายเป็น "฿100 บาท" (ซ้ำ)
-      price: (data['price'] ?? 0).toString(),
+      price: '${data['price'] ?? 0} บาท',
       location: data['location'] ?? 'ไม่ระบุสถานที่',
       imageUrl:
           data['imageUrl'] ??
           'https://via.placeholder.com/300x200.png?text=No+Image',
       createdBy: data['createdBy'] ?? '',
-      // 👇 ดึงข้อมูล category และ type มาด้วย (ถ้าไม่มีให้ใส่ค่า Default)
-      category: data['category'] ?? 'General',
-      type: data['type'] ?? 'job',
+
+      // Default เป็น 'open' ถ้าไม่มีข้อมูลใน DB
+      status: data['status'] ?? 'open',
+      acceptedBy: data['acceptedBy'], // อาจเป็น null ได้
+      // แปลง Timestamp เป็น DateTime
+      createdAt: (data['created_at'] as Timestamp?)?.toDate(),
     );
   }
 }

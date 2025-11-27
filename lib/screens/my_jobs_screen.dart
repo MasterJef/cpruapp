@@ -1,181 +1,136 @@
+// lib/screens/my_jobs_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cprujobapp/models/job_model.dart'; // เรียกใช้ Model
-import 'package:cprujobapp/screens/job_detail_screen.dart'; // เผื่อกดเข้าไปดูรายละเอียดก่อนลบ
+import '../models/job_model.dart';
+import 'job_detail_screen.dart';
 
 class MyJobsScreen extends StatelessWidget {
   const MyJobsScreen({super.key});
 
-  // ฟังก์ชันลบงาน
   Future<void> _deleteJob(BuildContext context, String jobId) async {
-    // แสดง Dialog ยืนยันก่อนลบ
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ยืนยันการลบ'),
-        content: const Text(
-          'คุณต้องการลบประกาศงานนี้ใช่หรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้',
-        ),
+        title: const Text('ลบงาน'),
+        content: const Text('ต้องการลบงานนี้ใช่หรือไม่?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false), // ตอบ No
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('ยกเลิก'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true), // ตอบ Yes
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('ลบ', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
-    // ถ้ากด Yes (true) ให้ทำการลบ
     if (confirm == true) {
-      try {
-        await FirebaseFirestore.instance.collection('jobs').doc(jobId).delete();
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('ลบงานเรียบร้อยแล้ว')));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
-        }
-      }
+      await FirebaseFirestore.instance.collection('jobs').doc(jobId).delete();
+      if (context.mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('ลบงานเรียบร้อย')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // ดึง UID ของคนปัจจุบัน
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-
-    if (currentUserId == null) {
-      return const Scaffold(body: Center(child: Text('กรุณาเข้าสู่ระบบใหม่')));
-    }
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null)
+      return const Scaffold(body: Center(child: Text('กรุณาเข้าสู่ระบบ')));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ประกาศงานของฉัน'),
+        title: const Text('งานที่ฉันโพสต์'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // Query: เลือกเฉพาะ jobs ที่ createdBy ตรงกับ UID เรา
         stream: FirebaseFirestore.instance
             .collection('jobs')
-            .where('createdBy', isEqualTo: currentUserId)
+            .where('createdBy', isEqualTo: uid)
             .orderBy('created_at', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          // 1. กำลังโหลด
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting)
             return const Center(child: CircularProgressIndicator());
-          }
-
-          // 2. เกิด Error
-          if (snapshot.hasError) {
-            return Center(child: Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
-          }
-
-          // 3. ไม่มีข้อมูล
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.assignment_outlined,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'คุณยังไม่เคยประกาศงาน',
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                ],
+            return const Center(
+              child: Text(
+                'คุณยังไม่เคยโพสต์งาน',
+                style: TextStyle(color: Colors.grey),
               ),
             );
           }
 
-          // 4. มีข้อมูล -> แสดงรายการ
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              final doc = snapshot.data!.docs[index];
-              final job = Job.fromFirestore(doc);
+              Job job = Job.fromFirestore(snapshot.data!.docs[index]);
 
-              // 1. เช็คสถานะงาน
-              bool isTaken = job.status == 'accepted';
+              // ตรวจสอบสถานะเพื่อเปลี่ยนสีการ์ด
+              bool isAccepted = job.status == 'accepted';
+              Color cardColor = isAccepted
+                  ? Colors.green.shade50
+                  : Colors.white;
+              Color statusColor = isAccepted ? Colors.green : Colors.orange;
+              String statusText = isAccepted
+                  ? '✅ มีคนรับงานแล้ว'
+                  : '⏳ รอคนรับงาน';
 
-              // 2. แสดงการ์ด
               return Card(
-                // เปลี่ยนสีพื้นหลัง: ถ้าถูกรับแล้วเป็นสีเขียวอ่อน, ถ้ายังเป็นสีขาวปกติ
-                color: isTaken ? Colors.green.shade50 : null,
+                color: cardColor,
                 margin: const EdgeInsets.only(bottom: 12),
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  // รูปภาพงาน (ซ้าย)
+                  contentPadding: const EdgeInsets.all(10),
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
                       job.imageUrl,
-                      width: 60,
-                      height: 60,
+                      width: 50,
+                      height: 50,
                       fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, stack) =>
-                          const Icon(Icons.image),
+                      errorBuilder: (_, __, ___) =>
+                          Container(width: 50, color: Colors.grey),
                     ),
                   ),
-                  // ข้อมูลงาน (กลาง)
                   title: Text(
                     job.title,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 👇 ส่วนที่เพิ่ม: แสดงข้อความสถานะ
                       Text(
-                        isTaken ? '✅ มีคนรับงานแล้ว' : '⏳ รอคนรับงาน',
+                        job.price,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        statusText,
                         style: TextStyle(
-                          color: isTaken ? Colors.green : Colors.orange,
+                          color: statusColor,
                           fontWeight: FontWeight.bold,
+                          fontSize: 12,
                         ),
                       ),
-                      Text('ราคา: ${job.price}'),
                     ],
                   ),
-                  // ปุ่มลบ (ขวา)
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                     onPressed: () => _deleteJob(context, job.id),
-                    tooltip: 'ลบประกาศนี้',
                   ),
-                  // กดที่การ์ดเพื่อดูรายละเอียด
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => JobDetailScreen(job: job),
-                      ),
-                    );
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => JobDetailScreen(job: job),
+                    ),
+                  ),
                 ),
               );
             },
