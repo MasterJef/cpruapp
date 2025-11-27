@@ -13,6 +13,7 @@ import 'job_detail_screen.dart';
 import 'freelancer_detail_screen.dart';
 import 'login_screen.dart';
 import 'profile_screen.dart';
+import 'post_job_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -107,12 +108,33 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: TabBarView(
           children: [
-            _buildRealJobList(context), // แท็บ 1: งาน (Firestore)
-            _buildRealFreelancerList(context), // แท็บ 2: ฟรีแลนซ์ (Firestore)
+            _buildRealJobList(context),
+            _buildRealFreelancerList(context),
           ],
         ),
-      ),
-    );
+
+        // ---------------------------------------------------------
+        // ✅ แทรกปุ่ม FloatingActionButton ตรงนี้ครับ (อยู่ใน Scaffold)
+        // ---------------------------------------------------------
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            // กดแล้วไปหน้า PostJobScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const PostJobScreen()),
+            );
+          },
+          backgroundColor: Colors.orange,
+          foregroundColor: Colors.white, // สีไอคอน
+          shape: const CircleBorder(), // ทำให้ปุ่มกลมดิก
+          child: const Icon(Icons.add, size: 32),
+        ),
+        // (Optional) จัดตำแหน่งปุ่มไว้มุมขวาล่าง (ค่า Default อยู่แล้ว ไม่ใส่ก็ได้)
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
+        // ---------------------------------------------------------
+      ), // <--- วงเล็บปิดของ Scaffold
+    ); // <--- วงเล็บปิดของ DefaultTabController
   }
 
   // Widget 1: ดึงข้อมูลงานจาก Firestore (Jobs)
