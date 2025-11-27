@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Import Models
 import '../models/job_model.dart'; // สำหรับแท็บงาน
 import '../models/freelancer_model.dart'; // สำหรับแท็บฟรีแลนซ์ (ที่สร้างใหม่)
-import '../models/user_model.dart'; // สำหรับรูปโปรไฟล์
 
 // Import Screens
 import 'job_detail_screen.dart';

@@ -1,6 +1,5 @@
 // lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
-import '../main.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart'; // Import Service
 
