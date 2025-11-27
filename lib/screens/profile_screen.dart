@@ -1,8 +1,8 @@
+import 'package:cprujobapp/screens/my_jobs_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart'; // เพื่อเรียกใช้ currentUser
 import '../services/auth_service.dart'; // เพื่อเรียก Logout
 import 'login_screen.dart';
-import 'my_jobs_screen.dart'; // ลิงก์ไปหน้างานของฉัน
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -106,9 +106,7 @@ class ProfileScreen extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const MyJobsScreen(),
-                        ),
+                        MaterialPageRoute(builder: (context) => MyJobsScreen()),
                       );
                     },
                   ),

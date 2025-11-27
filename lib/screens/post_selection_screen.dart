@@ -1,5 +1,5 @@
-import 'package:cprujobapp/screens/post_job_form.dart';
 import 'package:flutter/material.dart';
+import 'package:cprujobapp/screens/post_job_screen.dart';
 
 class PostSelectionScreen extends StatelessWidget {
   const PostSelectionScreen({super.key});
