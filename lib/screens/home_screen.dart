@@ -141,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('jobs')
+          .where('status', isEqualTo: 'open')
           .orderBy('created_at', descending: true)
           .snapshots(),
       builder: (context, snapshot) {

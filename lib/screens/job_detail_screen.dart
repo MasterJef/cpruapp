@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cprujobapp/models/job_model.dart'; // ตรวจสอบ path ให้ถูก
+import 'package:cprujobapp/models/job_model.dart'; // เช็ค path ให้ถูก
 
 class JobDetailScreen extends StatefulWidget {
   final Job job;
@@ -19,8 +19,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // เช็คเบื้องต้นว่างานนี้มีคนรับไปหรือยัง (ถ้าใน model มี field นี้)
-    // _isAccepted = widget.job.status == 'accepted';
+    // เช็คค่าเริ่มต้นจาก Job ที่ส่งเข้ามา
+    _isAccepted = widget.job.status == 'accepted';
   }
 
   // ฟังก์ชันกดรับงาน
@@ -172,15 +172,45 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ],
         ),
         child: isOwner
-            ? OutlinedButton.icon(
-                onPressed: () {
-                  // อาจจะใส่ฟังก์ชันแก้ไข หรือลบตรงนี้ก็ได้
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('นี่คือประกาศของคุณเอง')),
-                  );
-                },
-                icon: const Icon(Icons.edit),
-                label: const Text('จัดการประกาศของฉัน'),
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ถ้างานถูกรับแล้ว ให้โชว์ข้อมูลคนรับ
+                  if (widget.job.status == 'accepted')
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'คนรับงานนี้คือ: \nID: ${widget.job.acceptedBy ?? "ไม่ระบุ"}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // ปุ่มจัดการ (Mock)
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('คุณคือเจ้าของงานนี้')),
+                      );
+                    },
+                    icon: const Icon(Icons.settings),
+                    label: const Text('จัดการประกาศ'),
+                  ),
+                ],
               )
             : FilledButton.icon(
                 onPressed: _isAccepted

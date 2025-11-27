@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/job_model.dart'; // เรียกใช้ Model
-import 'job_detail_screen.dart'; // เผื่อกดเข้าไปดูรายละเอียดก่อนลบ
+import 'package:cprujobapp/models/job_model.dart'; // เรียกใช้ Model
+import 'package:cprujobapp/screens/job_detail_screen.dart'; // เผื่อกดเข้าไปดูรายละเอียดก่อนลบ
 
 class MyJobsScreen extends StatelessWidget {
   const MyJobsScreen({super.key});
@@ -108,11 +108,16 @@ class MyJobsScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              // แปลงข้อมูลเป็น Job Object
               final doc = snapshot.data!.docs[index];
               final job = Job.fromFirestore(doc);
 
+              // 1. เช็คสถานะงาน
+              bool isTaken = job.status == 'accepted';
+
+              // 2. แสดงการ์ด
               return Card(
+                // เปลี่ยนสีพื้นหลัง: ถ้าถูกรับแล้วเป็นสีเขียวอ่อน, ถ้ายังเป็นสีขาวปกติ
+                color: isTaken ? Colors.green.shade50 : null,
                 margin: const EdgeInsets.only(bottom: 12),
                 elevation: 2,
                 shape: RoundedRectangleBorder(
@@ -131,12 +136,8 @@ class MyJobsScreen extends StatelessWidget {
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, stack) => Container(
-                        width: 60,
-                        height: 60,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.image, color: Colors.grey),
-                      ),
+                      errorBuilder: (ctx, err, stack) =>
+                          const Icon(Icons.image),
                     ),
                   ),
                   // ข้อมูลงาน (กลาง)
@@ -149,14 +150,15 @@ class MyJobsScreen extends StatelessWidget {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(job.location, style: const TextStyle(fontSize: 12)),
+                      // 👇 ส่วนที่เพิ่ม: แสดงข้อความสถานะ
                       Text(
-                        job.price,
-                        style: const TextStyle(
-                          color: Colors.orange,
+                        isTaken ? '✅ มีคนรับงานแล้ว' : '⏳ รอคนรับงาน',
+                        style: TextStyle(
+                          color: isTaken ? Colors.green : Colors.orange,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      Text('ราคา: ${job.price}'),
                     ],
                   ),
                   // ปุ่มลบ (ขวา)
