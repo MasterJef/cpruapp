@@ -1,52 +1,59 @@
 // lib/services/image_service.dart
-import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'dart:io'; // สำหรับ File บน Mobile
+import 'package:flutter/foundation.dart'; // สำหรับ kIsWeb
+import 'package:image_picker/image_picker.dart'; // ต้องมี package นี้
 import 'package:firebase_storage/firebase_storage.dart';
 
 class ImageService {
-  // 1. ฟังก์ชันเลือกรูปจาก Gallery
-  static Future<File?> pickImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70, // ลดคุณภาพเหลือ 70% เพื่อประหยัดเน็ตและพื้นที่
-      );
+  final ImagePicker _picker = ImagePicker();
 
-      if (image != null) {
-        return File(image.path);
-      }
-      return null;
+  // 1. ฟังก์ชันเลือกรูป (คืนค่าเป็น XFile)
+  Future<XFile?> pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70, // บีบอัดรูป
+        maxWidth: 1024, // จำกัดขนาด
+      );
+      return image;
     } catch (e) {
       debugPrint('Error picking image: $e');
       return null;
     }
   }
 
-  // 2. ฟังก์ชันอัปโหลดรูปขึ้น Firebase Storage
-  // pathFolder: เช่น 'job_images' หรือ 'profile_images'
-  // ตัวอย่าง ImageService.uploadImage ที่รองรับ Web
-  static Future<String?> uploadImage(XFile imageFile, String pathFolder) async {
+  // 2. ฟังก์ชันอัปโหลดรูป (รองรับทั้ง Web และ Mobile)
+  Future<String?> uploadImage(XFile image, String folderPath) async {
     try {
+      // สร้างชื่อไฟล์ไม่ซ้ำกัน
       String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
       Reference ref = FirebaseStorage.instance.ref().child(
-        '$pathFolder/$fileName',
+        '$folderPath/$fileName',
       );
 
-      // Upload logic ที่รองรับทั้ง Web และ Mobile
+      UploadTask uploadTask;
+
       if (kIsWeb) {
-        // สำหรับ Web ให้อัปโหลดเป็น Bytes
-        await ref.putData(await imageFile.readAsBytes());
+        // --- สำหรับ WEB: อัปโหลดด้วย Bytes (Data) ---
+        // XFile บนเว็บอ่านเป็น bytes ได้เลย
+        final bytes = await image.readAsBytes();
+        uploadTask = ref.putData(
+          bytes,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
       } else {
-        // สำหรับ Mobile ให้อัปโหลดเป็น File
-        await ref.putFile(File(imageFile.path));
+        // --- สำหรับ MOBILE: อัปโหลดด้วย File ---
+        // แปลง XFile path เป็น File ของ dart:io
+        File ioFile = File(image.path);
+        uploadTask = ref.putFile(ioFile);
       }
 
-      return await ref.getDownloadURL();
+      // รอจนเสร็จแล้วขอ URL
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('Error uploading image: $e');
       return null;
     }
   }

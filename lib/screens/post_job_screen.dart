@@ -1,15 +1,16 @@
-import 'dart:io'; // จำเป็นสำหรับ Mobile (File)
-import 'package:flutter/foundation.dart'; // จำเป็นสำหรับ kIsWeb
+// lib/screens/post_job_screen.dart
+import 'dart:io'; // ใช้สำหรับ Mobile เท่านั้น
+import 'package:flutter/foundation.dart'; // ใช้สำหรับ kIsWeb
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart'; // ใช้ XFile
 
 import '../models/job_model.dart';
-import '../services/image_service.dart'; // สมมติว่า Service นี้รับ XFile ได้แล้ว หรือเราจะส่ง XFile ไป
+import '../services/image_service.dart';
 
 class PostJobScreen extends StatefulWidget {
-  final Job? job; // รับค่ามาเมื่อต้องการแก้ไข
+  final Job? job;
 
   const PostJobScreen({super.key, this.job});
 
@@ -20,6 +21,7 @@ class PostJobScreen extends StatefulWidget {
 class _PostJobScreenState extends State<PostJobScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  final ImageService _imageService = ImageService(); // Instance
 
   // Controllers
   final _titleController = TextEditingController();
@@ -31,26 +33,22 @@ class _PostJobScreenState extends State<PostJobScreen> {
   String? _selectedCategory;
   final List<String> _categories = ['อาหาร', 'ขนของ', 'ติวหนังสือ', 'ทั่วไป'];
 
-  // --- เปลี่ยนจาก File? เป็น XFile? เพื่อรองรับ Web ---
+  // ใช้ XFile แทน File เพื่อรองรับ Web
   XFile? _imageFile;
-  String? _existingImageUrl; // รูปเดิม (กรณีแก้ไข)
+  String? _existingImageUrl;
 
   @override
   void initState() {
     super.initState();
-    // Logic โหมดแก้ไข: ดึงข้อมูลเดิมมาใส่
     if (widget.job != null) {
       _titleController.text = widget.job!.title;
       _descController.text = widget.job!.description;
-      // ดึงเฉพาะตัวเลขจากราคา
       _priceController.text = widget.job!.price.replaceAll(
         RegExp(r'[^0-9]'),
         '',
       );
       _locationController.text = widget.job!.location;
       _existingImageUrl = widget.job!.imageUrl;
-
-      // ถ้ามีหมวดหมู่เดิม ให้เลือกไว้ (ถ้าไม่มีใน list ให้ปล่อย null หรือเพิ่ม logic เช็ค)
       // _selectedCategory = widget.job!.category;
     }
   }
@@ -64,26 +62,17 @@ class _PostJobScreenState extends State<PostJobScreen> {
     super.dispose();
   }
 
-  // --- ฟังก์ชันเลือกรูป (ปรับใหม่ใช้ ImagePicker โดยตรงเพื่อให้ได้ XFile) ---
+  // ฟังก์ชันเลือกรูป
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    try {
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-      );
-
-      if (image != null) {
-        setState(() {
-          _imageFile = image;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error picking image: $e');
+    final XFile? file = await _imageService.pickImage();
+    if (file != null) {
+      setState(() {
+        _imageFile = file;
+      });
     }
   }
 
-  // --- ฟังก์ชันบันทึก ---
+  // ฟังก์ชันบันทึก
   Future<void> _saveJob() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {
@@ -92,8 +81,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ).showSnackBar(const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')));
       return;
     }
-
-    // กรณีสร้างใหม่ ต้องมีรูป
     if (widget.job == null && _imageFile == null) {
       ScaffoldMessenger.of(
         context,
@@ -107,19 +94,14 @@ class _PostJobScreenState extends State<PostJobScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // 1. จัดการรูปภาพ
-      String imageUrl =
-          _existingImageUrl ?? 'https://via.placeholder.com/300'; // Default
+      String imageUrl = _existingImageUrl ?? 'https://via.placeholder.com/300';
 
-      // ถ้ามีการเลือกรูปใหม่ ให้อัปโหลด
+      // ถ้ามีรูปใหม่ ส่ง XFile ไปอัปโหลด
       if (_imageFile != null) {
-        // ส่ง XFile ไปให้ ImageService (ต้องแน่ใจว่า ImageService รองรับ XFile แล้ว)
-        // หมายเหตุ: ImageService.uploadImage ต้องถูกแก้ให้รับ XFile ด้วยถึงจะสมบูรณ์
-        String? uploadedUrl = await ImageService.uploadImage(
+        String? uploadedUrl = await _imageService.uploadImage(
           _imageFile!,
           'job_images',
         );
-
         if (uploadedUrl != null) {
           imageUrl = uploadedUrl;
         }
@@ -136,7 +118,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       };
 
       if (widget.job == null) {
-        // --- CREATE MODE ---
+        // Create
         await FirebaseFirestore.instance.collection('jobs').add({
           ...jobData,
           'status': 'open',
@@ -149,7 +131,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
             context,
           ).showSnackBar(const SnackBar(content: Text('โพสต์งานสำเร็จ!')));
       } else {
-        // --- EDIT MODE ---
+        // Update
         await FirebaseFirestore.instance
             .collection('jobs')
             .doc(widget.job!.id)
@@ -190,7 +172,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // --- ส่วนเลือกรูปภาพ (Image Picker Area) ---
+                    // --- Image Preview Area ---
                     GestureDetector(
                       onTap: _pickImage,
                       child: Container(
@@ -201,16 +183,15 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.shade300),
                         ),
-                        clipBehavior:
-                            Clip.antiAlias, // ตัดขอบรูปให้มนตาม Container
-                        child: _buildImagePreview(),
+                        clipBehavior: Clip.antiAlias,
+                        child:
+                            _buildImagePreview(), // แยก Widget ออกมาเพื่อจัดการ Logic Web/Mobile
                       ),
                     ),
                     const SizedBox(height: 20),
 
                     _buildTextField(_titleController, 'ชื่องาน', Icons.title),
                     const SizedBox(height: 16),
-
                     DropdownButtonFormField<String>(
                       decoration: _inputDecoration('หมวดหมู่', Icons.category),
                       value: _selectedCategory,
@@ -223,7 +204,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           setState(() => _selectedCategory = val),
                     ),
                     const SizedBox(height: 16),
-
                     Row(
                       children: [
                         Expanded(
@@ -247,7 +227,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-
                     _buildTextField(
                       _descController,
                       'รายละเอียด',
@@ -255,7 +234,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                       maxLines: 5,
                     ),
                     const SizedBox(height: 30),
-
                     SizedBox(
                       height: 50,
                       child: FilledButton.icon(
@@ -277,19 +255,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
-  // --- Widget แสดงผลรูปภาพ (Logic สำคัญสำหรับ Web/Mobile) ---
+  // --- Widget จัดการ Preview รูป (แก้ปัญหา Platform Error) ---
   Widget _buildImagePreview() {
-    // 1. ถ้ามีการเลือกรูปใหม่ (_imageFile ไม่ว่าง)
+    // 1. กรณีเลือกรูปใหม่มาแล้ว
     if (_imageFile != null) {
       if (kIsWeb) {
-        // ถ้าเป็น Web: ใช้ Image.network โดยส่ง path (ที่เป็น Blob URL)
+        // บน Web: Image.network อ่านจาก path (Blob URL)
         return Image.network(
           _imageFile!.path,
           fit: BoxFit.cover,
           width: double.infinity,
         );
       } else {
-        // ถ้าเป็น Mobile: ใช้ Image.file โดยแปลง path เป็น File
+        // บน Mobile: Image.file อ่านจาก path (File System)
         return Image.file(
           File(_imageFile!.path),
           fit: BoxFit.cover,
@@ -297,7 +275,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
         );
       }
     }
-    // 2. ถ้ามีรูปเดิม (โหมดแก้ไข)
+    // 2. กรณีมีรูปเดิม (Edit Mode)
     else if (_existingImageUrl != null) {
       return Image.network(
         _existingImageUrl!,

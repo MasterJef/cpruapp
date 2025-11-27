@@ -1,12 +1,12 @@
 // lib/screens/profile_screen.dart
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart'; // Import XFile
 
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
-import '../services/image_service.dart'; // Import Image Service
+import '../services/image_service.dart'; // Import Service
 import 'login_screen.dart';
 import 'my_jobs_screen.dart';
 
@@ -19,12 +19,14 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isUploading = false;
+  final ImageService _imageService = ImageService(); // สร้าง Instance
 
   // ฟังก์ชันเปลี่ยนรูปโปรไฟล์
   Future<void> _updateProfilePicture() async {
-    // 1. เลือกรูป
-    XFile? imageFile = await ImageService().pickImage();
-    if (imageFile == null) return;
+    // 1. เรียกใช้ Service เลือกรูป
+    XFile? imageFile = await _imageService.pickImage();
+
+    if (imageFile == null) return; // ถ้าไม่ได้เลือกรูปก็จบ
 
     setState(() => _isUploading = true);
 
@@ -32,8 +34,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // 2. อัปโหลดรูป
-      String? downloadUrl = await ImageService.uploadImage(
+      // 2. ส่ง XFile ไปอัปโหลด
+      String? downloadUrl = await _imageService.uploadImage(
         imageFile,
         'user_profiles/${user.uid}',
       );
@@ -45,8 +47,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             .doc(user.uid)
             .update({'imageUrl': downloadUrl});
 
-        // 4. อัปเดต Global Variable (เพื่อให้หน้าอื่นเห็นรูปใหม่ทันที)
-        currentUser.imageUrl = downloadUrl;
+        // 4. อัปเดต Global Variable และ UI ทันที
+        setState(() {
+          currentUser.imageUrl = downloadUrl;
+          _isUploading = false;
+        });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -55,12 +60,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
-    } finally {
-      if (mounted) setState(() => _isUploading = false);
+      }
+      setState(() => _isUploading = false);
     }
   }
 
@@ -103,7 +108,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
-                  // รูปโปรไฟล์ + ปุ่มแก้ไข
                   Center(
                     child: Stack(
                       children: [
@@ -127,12 +131,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   onBackgroundImageError: (_, __) {},
                                 ),
                         ),
-                        // ปุ่มกล้องถ่ายรูป
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: GestureDetector(
-                            onTap: _updateProfilePicture, // กดแล้วเปลี่ยนรูป
+                            onTap: _updateProfilePicture,
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: const BoxDecoration(
