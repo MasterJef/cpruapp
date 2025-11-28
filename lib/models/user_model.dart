@@ -8,6 +8,8 @@ class UserProfile {
   String major;
   String year;
   String imageUrl;
+  String? phone;
+  String? lineId;
 
   UserProfile({
     required this.uid,

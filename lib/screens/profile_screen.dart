@@ -1,4 +1,5 @@
 // lib/screens/profile_screen.dart
+import 'package:cprujobapp/screens/edit_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -202,9 +203,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildMenuItem(
                     context,
                     icon: Icons.settings,
-                    title: 'ตั้งค่า (Settings)',
-                    subtitle: 'แก้ไขข้อมูลส่วนตัว, เปลี่ยนรหัสผ่าน',
-                    onTap: () {},
+                    title: 'แก้ไขข้อมูลส่วนตัว (Edit Profile)',
+                    subtitle: 'แก้ไขชื่อ, คณะ, เบอร์โทร, รูปโปรไฟล์',
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EditProfileScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 40),
                   SizedBox(
