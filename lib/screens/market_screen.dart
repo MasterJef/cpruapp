@@ -25,10 +25,13 @@ class _MarketScreenState extends State<MarketScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Filter Bar
         Container(
-          height: 50,
+          height: 60,
+          color: Colors.white,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             itemCount: _categories.length,
             itemBuilder: (context, index) {
               final cat = _categories[index];
@@ -48,25 +51,37 @@ class _MarketScreenState extends State<MarketScreen> {
             },
           ),
         ),
+
+        // Product Grid
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _getStream(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData)
+              if (snapshot.hasError)
+                return const Center(child: Text('เกิดข้อผิดพลาด'));
+              if (snapshot.connectionState == ConnectionState.waiting)
                 return const Center(child: CircularProgressIndicator());
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text('ไม่พบสินค้าในหมวดหมู่นี้'));
+              }
 
               return GridView.builder(
                 padding: const EdgeInsets.all(10),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio:
-                      0.75, // ปรับสัดส่วนให้สวยงาม (สูงกว่ากว้างเล็กน้อย)
+                  childAspectRatio: 0.70, // ปรับสัดส่วนให้พอดี
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                 ),
                 itemCount: snapshot.data!.docs.length,
                 itemBuilder: (context, index) {
                   Product p = Product.fromFirestore(snapshot.data!.docs[index]);
+                  // ใช้รูปแรกถ้ามี
+                  String thumb = p.imageUrls.isNotEmpty
+                      ? p.imageUrls.first
+                      : 'https://via.placeholder.com/300';
+
                   return GestureDetector(
                     onTap: () => Navigator.push(
                       context,
@@ -75,21 +90,22 @@ class _MarketScreenState extends State<MarketScreen> {
                       ),
                     ),
                     child: Card(
+                      elevation: 2,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
+                      clipBehavior: Clip.antiAlias,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(10),
-                              ),
-                              child: Image.network(
-                                p.imageUrls.first,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
+                            child: Image.network(
+                              thumb,
+                              width: double.infinity,
+                              fit: BoxFit.cover, // ให้รูปเต็มช่องสวยงาม
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.broken_image),
                               ),
                             ),
                           ),
@@ -153,12 +169,16 @@ class _MarketScreenState extends State<MarketScreen> {
   }
 
   Stream<QuerySnapshot> _getStream() {
-    var ref = FirebaseFirestore.instance
-        .collection('market_items')
-        .orderBy('created_at', descending: true);
+    // 1. เริ่มต้นด้วยการอ้างอิง Collection
+    Query query = FirebaseFirestore.instance.collection('market_items');
+
+    // 2. ถ้าไม่ได้เลือก "ทั้งหมด" ให้เพิ่มเงื่อนไข where
     if (_selectedCategory != 'ทั้งหมด') {
-      return ref.where('category', isEqualTo: _selectedCategory).snapshots();
+      query = query.where('category', isEqualTo: _selectedCategory);
     }
-    return ref.snapshots();
+
+    // 3. เรียงลำดับตามเวลาล่าสุด
+    // หมายเหตุ: ถ้าใช้ .where คู่กับ .orderBy อาจต้องสร้าง Index ใน Firebase Console
+    return query.orderBy('created_at', descending: true).snapshots();
   }
 }

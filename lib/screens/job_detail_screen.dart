@@ -2,17 +2,62 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/job_model.dart';
-import 'post_job_screen.dart'; // เพื่อกดแก้ไข
+import '../widgets/full_screen_image.dart'; // Import Widget ดูรูปเต็มจอ
+import 'post_job_screen.dart';
 
-class JobDetailScreen extends StatelessWidget {
+class JobDetailScreen extends StatefulWidget {
   final Job job;
   const JobDetailScreen({super.key, required this.job});
 
   @override
+  State<JobDetailScreen> createState() => _JobDetailScreenState();
+}
+
+class _JobDetailScreenState extends State<JobDetailScreen> {
+  int _currentImageIndex = 0; // เก็บตำแหน่งรูปปัจจุบัน
+
+  Future<void> _acceptJob(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Logic รับงาน
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ยืนยันรับงาน'),
+        content: const Text('คุณต้องการรับงานนี้ใช่หรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('รับงาน'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await FirebaseFirestore.instance
+          .collection('jobs')
+          .doc(widget.job.id)
+          .update({'status': 'accepted', 'acceptedBy': user.uid});
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('รับงานสำเร็จ!')));
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    final bool isOwner = currentUser?.uid == job.createdBy;
-    final bool isAccepted = job.status == 'accepted';
+    final bool isOwner = currentUser?.uid == widget.job.createdBy;
+    final bool isAccepted = widget.job.status == 'accepted';
 
     return Scaffold(
       appBar: AppBar(
@@ -21,12 +66,12 @@ class JobDetailScreen extends StatelessWidget {
           if (isOwner)
             IconButton(
               icon: const Icon(Icons.edit),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => PostJobScreen(job: job)),
-                );
-              },
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostJobScreen(job: widget.job),
+                ),
+              ),
             ),
         ],
       ),
@@ -34,21 +79,63 @@ class JobDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image Carousel
-            SizedBox(
-              height: 250,
-              child: PageView.builder(
-                itemCount: job.imageUrls.length,
-                itemBuilder: (context, index) {
-                  return Image.network(
-                    job.imageUrls[index],
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.broken_image),
+            // --- Image Carousel (PageView) ---
+            GestureDetector(
+              onTap: () {
+                // กดที่รูปเพื่อดูเต็มจอ
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FullScreenImageView(
+                      imageUrls: widget.job.imageUrls,
+                      initialIndex: _currentImageIndex,
                     ),
-                  );
-                },
+                  ),
+                );
+              },
+              child: Container(
+                height: 300,
+                color: Colors.black, // พื้นหลังดำให้ดูพรีเมียม
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    PageView.builder(
+                      itemCount: widget.job.imageUrls.length,
+                      onPageChanged: (index) {
+                        setState(() => _currentImageIndex = index);
+                      },
+                      itemBuilder: (context, index) {
+                        return Image.network(
+                          widget.job.imageUrls[index],
+                          fit: BoxFit.contain, // รูปไม่โดนตัด
+                        );
+                      },
+                    ),
+                    // Dots Indicator
+                    if (widget.job.imageUrls.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(widget.job.imageUrls.length, (
+                            index,
+                          ) {
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _currentImageIndex == index
+                                    ? Colors.orange
+                                    : Colors.grey,
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
 
@@ -57,11 +144,11 @@ class JobDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Author Info
+                  // ข้อมูลผู้โพสต์
                   Row(
                     children: [
                       CircleAvatar(
-                        backgroundImage: NetworkImage(job.authorAvatar),
+                        backgroundImage: NetworkImage(widget.job.authorAvatar),
                         radius: 20,
                       ),
                       const SizedBox(width: 10),
@@ -69,7 +156,7 @@ class JobDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            job.authorName,
+                            widget.job.authorName,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
@@ -82,21 +169,15 @@ class JobDetailScreen extends StatelessWidget {
                         ],
                       ),
                       const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isAccepted ? Colors.green : Colors.orange,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          isAccepted ? 'มีคนรับแล้ว' : 'ว่าง',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
+                      Chip(
+                        label: Text(isAccepted ? 'มีคนรับแล้ว' : 'ว่าง'),
+                        backgroundColor: isAccepted
+                            ? Colors.green[100]
+                            : Colors.orange[100],
+                        labelStyle: TextStyle(
+                          color: isAccepted
+                              ? Colors.green[800]
+                              : Colors.orange[800],
                         ),
                       ),
                     ],
@@ -104,14 +185,14 @@ class JobDetailScreen extends StatelessWidget {
                   const Divider(height: 30),
 
                   Text(
-                    job.title,
+                    widget.job.title,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${job.price} บาท',
+                    '${widget.job.price} บาท',
                     style: TextStyle(
                       fontSize: 20,
                       color: Theme.of(context).primaryColor,
@@ -119,17 +200,20 @@ class JobDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  _infoRow(Icons.location_on, 'สถานที่', job.location),
+                  _infoRow(Icons.location_on, 'สถานที่', widget.job.location),
                   const SizedBox(height: 10),
-                  _infoRow(Icons.description, 'รายละเอียด', job.description),
+                  _infoRow(
+                    Icons.description,
+                    'รายละเอียด',
+                    widget.job.description,
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: isOwner || isAccepted
+      bottomNavigationBar: (isOwner || isAccepted)
           ? null
           : Container(
               padding: const EdgeInsets.all(16),
@@ -165,21 +249,5 @@ class JobDetailScreen extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Future<void> _acceptJob(BuildContext context) async {
-    // Logic รับงาน (เหมือนเดิม)
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    await FirebaseFirestore.instance.collection('jobs').doc(job.id).update({
-      'status': 'accepted',
-      'acceptedBy': user.uid,
-    });
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('รับงานสำเร็จ!')));
-      Navigator.pop(context);
-    }
   }
 }

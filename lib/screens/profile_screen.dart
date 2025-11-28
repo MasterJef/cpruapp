@@ -1,5 +1,6 @@
 // lib/screens/profile_screen.dart
 import 'package:cprujobapp/screens/edit_profile_screen.dart';
+import 'package:cprujobapp/screens/my_products_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -196,6 +197,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const MyJobsScreen(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.storefront,
+                    title: 'รายการขายของฉัน (My Products)',
+                    subtitle: 'จัดการสินค้าที่คุณลงขาย',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MyProductsScreen(),
                       ),
                     ),
                   ),
