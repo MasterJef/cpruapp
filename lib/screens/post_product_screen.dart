@@ -1,14 +1,17 @@
-// lib/screens/post_product_screen.dart
 import 'dart:io';
-import 'package:flutter/foundation.dart'; // kIsWeb
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../models/product_model.dart';
+import '../models/user_model.dart';
 import '../services/image_service.dart';
 
 class PostProductScreen extends StatefulWidget {
-  const PostProductScreen({super.key});
+  final Product? product;
+  const PostProductScreen({super.key, this.product});
 
   @override
   State<PostProductScreen> createState() => _PostProductScreenState();
@@ -35,59 +38,77 @@ class _PostProductScreenState extends State<PostProductScreen> {
   String _selectedCondition = 'มือสอง';
   final List<String> _conditions = ['มือหนึ่ง', 'มือสอง'];
 
-  XFile? _imageFile;
+  List<String> _existingUrls = [];
+  List<XFile> _newFiles = [];
 
-  Future<void> _pickImage() async {
-    final XFile? file = await _imageService.pickImage();
-    if (file != null) setState(() => _imageFile = file);
+  @override
+  void initState() {
+    super.initState();
+    if (widget.product != null) {
+      _nameCtrl.text = widget.product!.name;
+      _descCtrl.text = widget.product!.description;
+      _priceCtrl.text = widget.product!.price.toStringAsFixed(0);
+      _selectedCategory = widget.product!.category;
+      _selectedCondition = widget.product!.condition;
+      _existingUrls = List.from(widget.product!.imageUrls);
+    }
+  }
+
+  Future<void> _pickImages() async {
+    List<XFile> files = await _imageService.pickMultiImages();
+    if (files.isNotEmpty) setState(() => _newFiles.addAll(files));
   }
 
   Future<void> _submitProduct() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_imageFile == null) {
+    if (_existingUrls.isEmpty && _newFiles.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('กรุณาใส่รูปสินค้า')));
+      ).showSnackBar(const SnackBar(content: Text('กรุณาเพิ่มรูปสินค้า')));
       return;
     }
 
     setState(() => _isLoading = true);
-
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // 1. อัปโหลดรูป
-      String? imageUrl = await _imageService.uploadImage(
-        _imageFile!,
+      List<String> newUrls = await _imageService.uploadMultipleImages(
+        _newFiles,
         'market_products',
       );
-      imageUrl ??= 'https://via.placeholder.com/300';
+      List<String> finalUrls = [..._existingUrls, ...newUrls];
 
-      // 2. บันทึก Firestore
-      await FirebaseFirestore.instance.collection('market_items').add({
+      Map<String, dynamic> data = {
         'name': _nameCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
         'price': double.parse(_priceCtrl.text.trim()),
         'category': _selectedCategory,
         'condition': _selectedCondition,
-        'imageUrl': imageUrl,
-        'sellerId': user.uid,
-        'created_at': FieldValue.serverTimestamp(),
-        'status': 'available',
-      });
+        'imageUrls': finalUrls,
+        'authorName': '${currentUser.firstName} ${currentUser.lastName}',
+        'authorAvatar': currentUser.imageUrl,
+      };
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('ลงขายสินค้าเรียบร้อย!')));
-        Navigator.pop(context);
+      if (widget.product == null) {
+        await FirebaseFirestore.instance.collection('market_items').add({
+          ...data,
+          'sellerId': user.uid,
+          'status': 'available',
+          'created_at': FieldValue.serverTimestamp(),
+        });
+      } else {
+        await FirebaseFirestore.instance
+            .collection('market_items')
+            .doc(widget.product!.id)
+            .update({...data, 'updated_at': FieldValue.serverTimestamp()});
       }
+
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -97,64 +118,57 @@ class _PostProductScreenState extends State<PostProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ลงขายสินค้า'),
+        title: Text(widget.product == null ? 'ลงขายสินค้า' : 'แก้ไขสินค้า'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    // เลือกรูป
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        height: 200,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: _imageFile != null
-                            ? (kIsWeb
-                                  ? Image.network(
-                                      _imageFile!.path,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.file(
-                                      File(_imageFile!.path),
-                                      fit: BoxFit.cover,
-                                    ))
-                            : const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo,
-                                    size: 50,
-                                    color: Colors.grey,
-                                  ),
-                                  Text('เพิ่มรูปสินค้า'),
-                                ],
+                    SizedBox(
+                      height: 120,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          GestureDetector(
+                            onTap: _pickImages,
+                            child: Container(
+                              width: 100,
+                              margin: const EdgeInsets.only(right: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(10),
                               ),
+                              child: const Icon(
+                                Icons.add_a_photo,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          ..._existingUrls.map(
+                            (url) => _buildPreview(url, true),
+                          ),
+                          ..._newFiles.map(
+                            (file) => _buildPreview(file.path, kIsWeb),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     TextFormField(
                       controller: _nameCtrl,
                       decoration: const InputDecoration(
                         labelText: 'ชื่อสินค้า',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v!.isEmpty ? 'ระบุชื่อสินค้า' : null,
+                      validator: (v) => v!.isEmpty ? 'ระบุชื่อ' : null,
                     ),
-                    const SizedBox(height: 16),
-
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
@@ -162,13 +176,13 @@ class _PostProductScreenState extends State<PostProductScreen> {
                             controller: _priceCtrl,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'ราคา (บาท)',
+                              labelText: 'ราคา',
                               border: OutlineInputBorder(),
                             ),
                             validator: (v) => v!.isEmpty ? 'ระบุราคา' : null,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: DropdownButtonFormField(
                             value: _selectedCondition,
@@ -190,8 +204,7 @@ class _PostProductScreenState extends State<PostProductScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-
+                    const SizedBox(height: 12),
                     DropdownButtonFormField(
                       value: _selectedCategory,
                       decoration: const InputDecoration(
@@ -205,8 +218,7 @@ class _PostProductScreenState extends State<PostProductScreen> {
                           .toList(),
                       onChanged: (v) => setState(() => _selectedCategory = v!),
                     ),
-                    const SizedBox(height: 16),
-
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _descCtrl,
                       maxLines: 4,
@@ -217,7 +229,6 @@ class _PostProductScreenState extends State<PostProductScreen> {
                       validator: (v) => v!.isEmpty ? 'ระบุรายละเอียด' : null,
                     ),
                     const SizedBox(height: 30),
-
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -226,9 +237,9 @@ class _PostProductScreenState extends State<PostProductScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.orange,
                         ),
-                        child: const Text(
-                          'ลงขายทันที',
-                          style: TextStyle(fontSize: 18),
+                        child: Text(
+                          widget.product == null ? 'ลงขาย' : 'บันทึก',
+                          style: const TextStyle(fontSize: 18),
                         ),
                       ),
                     ),
@@ -236,6 +247,22 @@ class _PostProductScreenState extends State<PostProductScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildPreview(String path, bool isNet) {
+    return Container(
+      width: 100,
+      margin: const EdgeInsets.only(right: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        image: DecorationImage(
+          image: isNet
+              ? NetworkImage(path)
+              : FileImage(File(path)) as ImageProvider,
+          fit: BoxFit.cover,
+        ),
+      ),
     );
   }
 }

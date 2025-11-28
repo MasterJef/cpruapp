@@ -1,75 +1,63 @@
-// lib/services/image_service.dart
-import 'dart:io'; // สำหรับ File บน Mobile
-import 'package:flutter/foundation.dart'; // สำหรับ kIsWeb
-import 'package:image_picker/image_picker.dart'; // ต้องมี package นี้
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class ImageService {
   final ImagePicker _picker = ImagePicker();
 
-  // 1. ฟังก์ชันเลือกรูป (คืนค่าเป็น XFile)
+  // เลือกรูปเดียว
   Future<XFile?> pickImage() async {
     try {
-      final XFile? image = await _picker.pickImage(
+      return await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 50, // บีบอัดรูป
-        maxWidth: 800, // จำกัดขนาด
+        imageQuality: 70,
+        maxWidth: 1024,
       );
-      return image;
     } catch (e) {
-      debugPrint('Error picking image: $e');
+      debugPrint('Error: $e');
       return null;
     }
   }
 
-  // 2. ฟังก์ชันอัปโหลดรูป (รองรับทั้ง Web และ Mobile)
-  // ... (โค้ดส่วนบนเหมือนเดิม)
+  // เลือกหลายรูป (New Feature)
+  Future<List<XFile>> pickMultiImages() async {
+    try {
+      return await _picker.pickMultiImage(imageQuality: 70, maxWidth: 1024);
+    } catch (e) {
+      debugPrint('Error picking multi images: $e');
+      return [];
+    }
+  }
 
   Future<String?> uploadImage(XFile image, String folderPath) async {
     try {
-      print('--- START UPLOAD ---'); // 1. เริ่มทำงานไหม
-      String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      String fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
       Reference ref = FirebaseStorage.instance.ref().child(
         '$folderPath/$fileName',
       );
-
-      UploadTask uploadTask;
-
-      if (kIsWeb) {
-        print('--- Mode: WEB ---');
-        final bytes = await image.readAsBytes();
-        print(
-          '--- Read Bytes Done (${bytes.length} bytes) ---',
-        ); // 2. อ่านไฟล์เสร็จไหม
-        uploadTask = ref.putData(
-          bytes,
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
-      } else {
-        print('--- Mode: MOBILE ---');
-        File ioFile = File(image.path);
-        uploadTask = ref.putFile(ioFile);
-      }
-
-      print('--- Uploading... (Waiting) ---'); // 3. กำลังส่งข้อมูล
-
-      // เพิ่ม Listener เพื่อดู % การอัปโหลด
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        double progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        print('Upload is $progress% done');
-      });
-
-      TaskSnapshot snapshot = await uploadTask;
-      print('--- Upload Done! ---'); // 4. อัปโหลดเสร็จ
-
-      String downloadUrl = await snapshot.ref.getDownloadURL();
-      print('--- Got URL: $downloadUrl ---'); // 5. ได้ URL
-
-      return downloadUrl;
+      UploadTask task = kIsWeb
+          ? ref.putData(await image.readAsBytes())
+          : ref.putFile(File(image.path));
+      TaskSnapshot snapshot = await task;
+      return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      print('!!! ERROR UPLOADING: $e'); // ถ้า Error จะโชว์ตรงนี้
+      debugPrint('Upload Error: $e');
       return null;
     }
+  }
+
+  // อัปโหลดหลายรูปพร้อมกัน (New Feature)
+  Future<List<String>> uploadMultipleImages(
+    List<XFile> images,
+    String folderPath,
+  ) async {
+    List<String> urls = [];
+    for (var image in images) {
+      String? url = await uploadImage(image, folderPath);
+      if (url != null) urls.add(url);
+    }
+    return urls;
   }
 }
