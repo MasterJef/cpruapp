@@ -256,13 +256,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
                     thumb,
-                    width: 60,
-                    height: 60,
+                    width: 100,
+                    height: 100,
                     fit: BoxFit.cover,
                     errorBuilder: (ctx, err, stack) => Container(
                       color: Colors.grey[300],
-                      width: 60,
-                      height: 60,
+                      width: 100,
+                      height: 100,
                       child: const Icon(Icons.image),
                     ),
                   ),

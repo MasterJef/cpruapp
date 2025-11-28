@@ -115,14 +115,19 @@ class _MarketScreenState extends State<MarketScreen> {
                               Expanded(
                                 child: Stack(
                                   children: [
-                                    Image.network(
-                                      thumb,
+                                    Container(
+                                      color: Colors
+                                          .black, // ✅ ใส่พื้นหลังดำ/เทาเข้ม
                                       width: double.infinity,
-                                      height: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        color: Colors.grey[200],
-                                        child: const Icon(Icons.broken_image),
+                                      child: Image.network(
+                                        thumb,
+                                        fit: BoxFit
+                                            .contain, // ✅ เปลี่ยนจาก cover เป็น contain (เห็นครบไม่โดนตัด)
+                                        errorBuilder: (ctx, err, stack) =>
+                                            Container(
+                                              color: Colors.white,
+                                              child: const Icon(Icons.image),
+                                            ),
                                       ),
                                     ),
                                     Positioned(
