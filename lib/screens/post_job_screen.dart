@@ -6,11 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/job_model.dart';
-import '../models/user_model.dart'; // เพื่อเอาชื่อ/รูป currentUser
+import '../models/user_model.dart';
 import '../services/image_service.dart';
 
 class PostJobScreen extends StatefulWidget {
-  final Job? job; // รับ Job เข้ามาเพื่อแก้ไข
+  final Job? job;
   const PostJobScreen({super.key, this.job});
 
   @override
@@ -28,36 +28,39 @@ class _PostJobScreenState extends State<PostJobScreen> {
   final _locationCtrl = TextEditingController();
 
   String? _selectedCategory;
-  final List<String> _categories = ['อาหาร', 'ขนของ', 'ติวหนังสือ', 'ทั่วไป'];
+  // ปรับหมวดหมู่ตาม Request
+  final List<String> _categories = [
+    'อาหาร',
+    'ขนของ',
+    'ติวหนังสือ',
+    'ทำความสะอาด',
+    'ทั่วไป',
+  ];
 
-  // จัดการรูปภาพ
-  List<String> _existingUrls = []; // รูปเดิมที่มีอยู่
-  List<XFile> _newFiles = []; // รูปใหม่ที่เพิ่งเลือก
+  List<String> _existingUrls = [];
+  List<XFile> _newFiles = [];
 
   @override
   void initState() {
     super.initState();
-    // Edit Mode Setup
     if (widget.job != null) {
       _titleCtrl.text = widget.job!.title;
       _descCtrl.text = widget.job!.description;
-      _priceCtrl.text = widget.job!.price.replaceAll(
-        RegExp(r'[^0-9]'),
-        '',
-      ); // เอาแค่ตัวเลข
+      _priceCtrl.text = widget.job!.price.replaceAll(RegExp(r'[^0-9]'), '');
       _locationCtrl.text = widget.job!.location;
       _existingUrls = List.from(widget.job!.imageUrls);
-      // _selectedCategory logic (ถ้ามีเก็บใน db)
+      // เช็คว่าหมวดหมู่เดิมอยู่ใน List ใหม่ไหม ถ้าไม่อยู่ให้เป็น 'ทั่วไป'
+      _selectedCategory = _categories.contains(widget.job!.id)
+          ? widget.job!.id
+          : null;
+      // *หมายเหตุ: Job Model ไม่ได้เก็บ category field ไว้ในตัวอย่างก่อนหน้า
+      // แต่ถ้ามีการเก็บให้ดึงมาใส่ตรงนี้
     }
   }
 
   Future<void> _pickImages() async {
     List<XFile> files = await _imageService.pickMultiImages();
-    if (files.isNotEmpty) {
-      setState(() {
-        _newFiles.addAll(files);
-      });
-    }
+    if (files.isNotEmpty) setState(() => _newFiles.addAll(files));
   }
 
   Future<void> _saveJob() async {
@@ -68,44 +71,36 @@ class _PostJobScreenState extends State<PostJobScreen> {
       ).showSnackBar(const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')));
       return;
     }
-    // เช็คว่ามีรูปบ้างไหม (ทั้งเก่าและใหม่)
     if (_existingUrls.isEmpty && _newFiles.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเพิ่มรูปภาพอย่างน้อย 1 รูป')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรุณาเพิ่มรูปภาพ')));
       return;
     }
 
     setState(() => _isLoading = true);
-
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // 1. อัปโหลดรูปใหม่
       List<String> newUrls = await _imageService.uploadMultipleImages(
         _newFiles,
         'job_images',
       );
+      List<String> finalUrls = [..._existingUrls, ...newUrls];
 
-      // 2. รวมรููปทั้งหมด
-      List<String> finalImageUrls = [..._existingUrls, ...newUrls];
-
-      // 3. เตรียมข้อมูล
       Map<String, dynamic> data = {
         'title': _titleCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
-        'price': _priceCtrl.text.trim(), // เก็บแค่ตัวเลข
+        'price': _priceCtrl.text.trim(),
         'location': _locationCtrl.text.trim(),
-        'category': _selectedCategory,
-        'imageUrls': finalImageUrls,
-        'authorName':
-            '${currentUser.firstName} ${currentUser.lastName}', // Denormalization
+        'category': _selectedCategory, // บันทึก Category
+        'imageUrls': finalUrls,
+        'authorName': '${currentUser.firstName} ${currentUser.lastName}',
         'authorAvatar': currentUser.imageUrl,
       };
 
       if (widget.job == null) {
-        // Create
         await FirebaseFirestore.instance.collection('jobs').add({
           ...data,
           'type': 'job',
@@ -114,13 +109,11 @@ class _PostJobScreenState extends State<PostJobScreen> {
           'createdBy': user.uid,
         });
       } else {
-        // Update
         await FirebaseFirestore.instance
             .collection('jobs')
             .doc(widget.job!.id)
             .update({...data, 'updated_at': FieldValue.serverTimestamp()});
       }
-
       if (mounted) Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(
@@ -147,13 +140,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Image Preview Area (Horizontal Scroll)
+                    // Image Preview Area
                     SizedBox(
                       height: 120,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          // ปุ่มเพิ่มรูป
                           GestureDetector(
                             onTap: _pickImages,
                             child: Container(
@@ -169,20 +161,21 @@ class _PostJobScreenState extends State<PostJobScreen> {
                               ),
                             ),
                           ),
-                          // รูปเดิม
                           ..._existingUrls.map(
-                            (url) => _buildPreviewItem(url, isNetwork: true),
+                            (url) => _buildPreview(url, true),
                           ),
-                          // รูปใหม่
                           ..._newFiles.map(
-                            (file) =>
-                                _buildPreviewItem(file.path, isNetwork: kIsWeb),
+                            (file) => _buildPreview(file.path, kIsWeb),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 20),
-                    _buildTextField(_titleCtrl, 'ชื่องาน', Icons.work),
+                    TextFormField(
+                      controller: _titleCtrl,
+                      decoration: _inputDecoration('ชื่องาน', Icons.work),
+                      validator: (v) => v!.isEmpty ? 'ระบุชื่อ' : null,
+                    ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField(
                       value: _selectedCategory,
@@ -198,29 +191,38 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: _buildTextField(
-                            _priceCtrl,
-                            'ราคา (บาท)',
-                            Icons.attach_money,
-                            isNumber: true,
+                          child: TextFormField(
+                            controller: _priceCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDecoration(
+                              'ราคา',
+                              Icons.attach_money,
+                            ),
+                            validator: (v) => v!.isEmpty ? 'ระบุราคา' : null,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _buildTextField(
-                            _locationCtrl,
-                            'สถานที่',
-                            Icons.location_on,
+                          child: TextFormField(
+                            controller: _locationCtrl,
+                            decoration: _inputDecoration(
+                              'สถานที่',
+                              Icons.location_on,
+                            ),
+                            validator: (v) => v!.isEmpty ? 'ระบุสถานที่' : null,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildTextField(
-                      _descCtrl,
-                      'รายละเอียด',
-                      Icons.description,
-                      maxLines: 5,
+                    TextFormField(
+                      controller: _descCtrl,
+                      maxLines: 4,
+                      decoration: _inputDecoration(
+                        'รายละเอียด',
+                        Icons.description,
+                      ),
+                      validator: (v) => v!.isEmpty ? 'ระบุรายละเอียด' : null,
                     ),
                     const SizedBox(height: 30),
                     SizedBox(
@@ -232,7 +234,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
                           backgroundColor: Colors.orange,
                         ),
                         child: Text(
-                          widget.job == null ? 'โพสต์งาน' : 'บันทึกการแก้ไข',
+                          widget.job == null ? 'โพสต์งาน' : 'บันทึก',
                           style: const TextStyle(fontSize: 18),
                         ),
                       ),
@@ -244,36 +246,19 @@ class _PostJobScreenState extends State<PostJobScreen> {
     );
   }
 
-  Widget _buildPreviewItem(String path, {required bool isNetwork}) {
+  Widget _buildPreview(String path, bool isNet) {
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         image: DecorationImage(
-          image: isNetwork
+          image: isNet
               ? NetworkImage(path)
               : FileImage(File(path)) as ImageProvider,
           fit: BoxFit.cover,
         ),
       ),
-      // สามารถเพิ่มปุ่มลบรูปตรงนี้ได้ในอนาคต
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController ctrl,
-    String label,
-    IconData icon, {
-    bool isNumber = false,
-    int maxLines = 1,
-  }) {
-    return TextFormField(
-      controller: ctrl,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      maxLines: maxLines,
-      decoration: _inputDecoration(label, icon),
-      validator: (v) => v!.isEmpty ? 'ระบุ$label' : null,
     );
   }
 

@@ -60,8 +60,9 @@ class MyProductsScreen extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting)
             return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
-            return const Center(child: Text('คุณยังไม่มีสินค้าที่ลงขาย'));
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('คุณยังไม่ได้ลงขายสินค้า'));
+          }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -83,8 +84,6 @@ class MyProductsScreen extends StatelessWidget {
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          Container(width: 60, color: Colors.grey),
                     ),
                   ),
                   title: Text(
@@ -93,7 +92,10 @@ class MyProductsScreen extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text('${p.price.toStringAsFixed(0)} บาท'),
+                  subtitle: Text(
+                    '${p.price.toStringAsFixed(0)} บาท\n(${p.category})',
+                  ),
+                  isThreeLine: true,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

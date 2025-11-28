@@ -11,25 +11,26 @@ class ImageService {
     try {
       return await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 70,
-        maxWidth: 1024,
+        maxWidth: 800, // ปรับตาม Request: กว้างสูงสุด 800px
+        imageQuality: 70, // ปรับตาม Request: คุณภาพ 70%
       );
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('Error picking image: $e');
       return null;
     }
   }
 
-  // เลือกหลายรูป (New Feature)
+  // เลือกหลายรูป
   Future<List<XFile>> pickMultiImages() async {
     try {
-      return await _picker.pickMultiImage(imageQuality: 70, maxWidth: 1024);
+      return await _picker.pickMultiImage(maxWidth: 800, imageQuality: 70);
     } catch (e) {
       debugPrint('Error picking multi images: $e');
       return [];
     }
   }
 
+  // อัปโหลดรูปเดียว
   Future<String?> uploadImage(XFile image, String folderPath) async {
     try {
       String fileName =
@@ -37,9 +38,17 @@ class ImageService {
       Reference ref = FirebaseStorage.instance.ref().child(
         '$folderPath/$fileName',
       );
-      UploadTask task = kIsWeb
-          ? ref.putData(await image.readAsBytes())
-          : ref.putFile(File(image.path));
+
+      UploadTask task;
+      if (kIsWeb) {
+        task = ref.putData(
+          await image.readAsBytes(),
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+      } else {
+        task = ref.putFile(File(image.path));
+      }
+
       TaskSnapshot snapshot = await task;
       return await snapshot.ref.getDownloadURL();
     } catch (e) {
@@ -48,7 +57,7 @@ class ImageService {
     }
   }
 
-  // อัปโหลดหลายรูปพร้อมกัน (New Feature)
+  // อัปโหลดหลายรูป
   Future<List<String>> uploadMultipleImages(
     List<XFile> images,
     String folderPath,

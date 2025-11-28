@@ -29,135 +29,156 @@ class _MarketScreenState extends State<MarketScreen> {
         Container(
           height: 60,
           color: Colors.white,
-          child: ListView.builder(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             itemCount: _categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final cat = _categories[index];
-              final isSel = _selectedCategory == cat;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ChoiceChip(
-                  label: Text(cat),
-                  selected: isSel,
-                  onSelected: (v) => setState(() => _selectedCategory = cat),
-                  selectedColor: Colors.orange[100],
-                  labelStyle: TextStyle(
-                    color: isSel ? Colors.orange[900] : Colors.black,
-                  ),
+              final category = _categories[index];
+              final isSelected = _selectedCategory == category;
+              return ChoiceChip(
+                label: Text(category),
+                selected: isSelected,
+                selectedColor: Colors.orange.shade100,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.orange.shade900 : Colors.black,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
+                onSelected: (bool selected) {
+                  if (selected) setState(() => _selectedCategory = category);
+                },
               );
             },
           ),
         ),
 
-        // Product Grid
+        // Responsive Product Grid
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _getStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError)
-                return const Center(child: Text('เกิดข้อผิดพลาด'));
+                return const Center(child: Text('โหลดข้อมูลไม่สำเร็จ'));
               if (snapshot.connectionState == ConnectionState.waiting)
                 return const Center(child: CircularProgressIndicator());
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('ไม่พบสินค้าในหมวดหมู่นี้'));
+                return const Center(
+                  child: Text(
+                    'ยังไม่มีสินค้าในหมวดนี้',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                );
               }
 
-              return GridView.builder(
-                padding: const EdgeInsets.all(10),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.70, // ปรับสัดส่วนให้พอดี
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: snapshot.data!.docs.length,
-                itemBuilder: (context, index) {
-                  Product p = Product.fromFirestore(snapshot.data!.docs[index]);
-                  // ใช้รูปแรกถ้ามี
-                  String thumb = p.imageUrls.isNotEmpty
-                      ? p.imageUrls.first
-                      : 'https://via.placeholder.com/300';
+              // ใช้ LayoutBuilder เช็คขนาดหน้าจอ
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  // ถ้าจอใหญ่กว่า 600px ให้โชว์ 4 คอลัมน์, ถ้ามือถือโชว์ 2
+                  int crossAxisCount = constraints.maxWidth > 600 ? 4 : 2;
 
-                  return GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(product: p),
-                      ),
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: 0.75, // สัดส่วนการ์ด
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                     ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Image.network(
-                              thumb,
-                              width: double.infinity,
-                              fit: BoxFit.cover, // ให้รูปเต็มช่องสวยงาม
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.broken_image),
-                              ),
-                            ),
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context, index) {
+                      final product = Product.fromFirestore(
+                        snapshot.data!.docs[index],
+                      );
+                      String thumb = product.imageUrls.isNotEmpty
+                          ? product.imageUrls.first
+                          : 'https://via.placeholder.com/300';
+
+                      return GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProductDetailScreen(product: product),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  p.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  '${p.price.toStringAsFixed(0)} บ.',
-                                  style: const TextStyle(
-                                    color: Colors.orange,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
+                        ),
+                        child: Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Stack(
                                   children: [
-                                    CircleAvatar(
-                                      backgroundImage: NetworkImage(
-                                        p.authorAvatar,
+                                    Image.network(
+                                      thumb,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: Colors.grey[200],
+                                        child: const Icon(Icons.broken_image),
                                       ),
-                                      radius: 8,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        p.authorName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey,
+                                    Positioned(
+                                      top: 5,
+                                      right: 5,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black54,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          product.condition,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      product.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${product.price.toStringAsFixed(0)} บ.',
+                                      style: const TextStyle(
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   );
                 },
               );
@@ -169,16 +190,12 @@ class _MarketScreenState extends State<MarketScreen> {
   }
 
   Stream<QuerySnapshot> _getStream() {
-    // 1. เริ่มต้นด้วยการอ้างอิง Collection
-    Query query = FirebaseFirestore.instance.collection('market_items');
-
-    // 2. ถ้าไม่ได้เลือก "ทั้งหมด" ให้เพิ่มเงื่อนไข where
+    Query query = FirebaseFirestore.instance
+        .collection('market_items')
+        .orderBy('created_at', descending: true);
     if (_selectedCategory != 'ทั้งหมด') {
       query = query.where('category', isEqualTo: _selectedCategory);
     }
-
-    // 3. เรียงลำดับตามเวลาล่าสุด
-    // หมายเหตุ: ถ้าใช้ .where คู่กับ .orderBy อาจต้องสร้าง Index ใน Firebase Console
-    return query.orderBy('created_at', descending: true).snapshots();
+    return query.snapshots();
   }
 }
