@@ -1,3 +1,4 @@
+import 'package:cprujobapp/models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -131,9 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: CircleAvatar(
+                  // อย่าลืม import 'package:cprujobapp/models/user_model.dart'; ด้านบน
                   backgroundImage: NetworkImage(
-                    user?.photoURL ??
-                        'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                    (currentUser.imageUrl.isNotEmpty)
+                        ? currentUser.imageUrl
+                        : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
                   ),
                   radius: 18,
                   onBackgroundImageError: (_, __) {},
