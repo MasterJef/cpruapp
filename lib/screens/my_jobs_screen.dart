@@ -1,4 +1,3 @@
-// lib/screens/my_jobs_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -72,7 +71,6 @@ class MyJobsScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               Job job = Job.fromFirestore(snapshot.data!.docs[index]);
 
-              // ตรวจสอบสถานะเพื่อเปลี่ยนสีการ์ด
               bool isAccepted = job.status == 'accepted';
               Color cardColor = isAccepted
                   ? Colors.green.shade50
@@ -82,6 +80,12 @@ class MyJobsScreen extends StatelessWidget {
                   ? '✅ มีคนรับงานแล้ว'
                   : '⏳ รอคนรับงาน';
 
+              // --- จุดที่แก้ไข: ดึงรูปแรกจาก List (job.imageUrls) ---
+              String thumbnail = (job.imageUrls.isNotEmpty)
+                  ? job.imageUrls.first
+                  : 'https://via.placeholder.com/150';
+              // --------------------------------------------------
+
               return Card(
                 color: cardColor,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -90,7 +94,7 @@ class MyJobsScreen extends StatelessWidget {
                   leading: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
-                      job.imageUrl,
+                      thumbnail, // ใช้ตัวแปรที่ดึงมาใหม่
                       width: 50,
                       height: 50,
                       fit: BoxFit.cover,
@@ -107,7 +111,7 @@ class MyJobsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        job.price,
+                        '${job.price} บาท',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
