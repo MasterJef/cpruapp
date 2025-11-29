@@ -1,13 +1,24 @@
+import 'package:flutter/foundation.dart'; // สำหรับ kIsWeb
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cprujobapp/models/job_model.dart';
-import 'package:cprujobapp/screens/job_detail_screen.dart';
-import 'package:cprujobapp/screens/post_job_screen.dart';
-import 'package:cprujobapp/screens/market_screen.dart';
-import 'package:cprujobapp/screens/profile_screen.dart';
-import 'package:cprujobapp/screens/post_product_screen.dart';
-import 'package:cprujobapp/screens/chat_list_screen.dart';
+
+// Imports Models
+import '../models/job_model.dart';
+import '../models/user_model.dart';
+
+// Imports Widgets
+import '../widgets/responsive_layout.dart';
+import '../widgets/web_chat_overlay.dart';
+
+// Imports Screens
+import 'job_detail_screen.dart';
+import 'login_screen.dart';
+import 'profile_screen.dart';
+import 'post_job_screen.dart';
+import 'market_screen.dart';
+import 'post_product_screen.dart';
+import 'chat_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,9 +28,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final User? user = FirebaseAuth.instance.currentUser;
+  // --- State สำหรับ Web Chat ---
+  bool _isChatDropdownOpen = false;
+  Map<String, dynamic>? _activeChatUser;
+  bool _isChatMinimized = false; // ตัวแปรที่ถูกต้อง
 
-  // ตัวแปรสำหรับ Filter งาน
+  // --- State สำหรับ Filter งาน ---
+  String _selectedJobCategory = 'ทั้งหมด';
   final List<String> _jobCategories = [
     'ทั้งหมด',
     'อาหาร',
@@ -28,8 +43,53 @@ class _HomeScreenState extends State<HomeScreen> {
     'ทำความสะอาด',
     'ทั่วไป',
   ];
-  String _selectedJobCategory = 'ทั้งหมด';
 
+  // ฟังก์ชัน Logout
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ยืนยันออกจากระบบ'),
+        content: const Text('คุณต้องการออกจากระบบใช่หรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () {
+              FirebaseAuth.instance
+                  .signOut(); // เพิ่มบรรทัดนี้เพื่อเคลียร์ Firebase Auth
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text('ออก', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ฟังก์ชันกดปุ่มแชท
+  void _onChatIconPressed() {
+    bool isLargeScreen = kIsWeb || MediaQuery.of(context).size.width > 600;
+
+    if (isLargeScreen) {
+      setState(() {
+        _isChatDropdownOpen = !_isChatDropdownOpen;
+      });
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ChatListScreen()),
+      );
+    }
+  }
+
+  // ฟังก์ชันแสดงตัวเลือกโพสต์
   void _showCreateOptions() {
     showModalBottomSheet(
       context: context,
@@ -37,48 +97,48 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Container(
+        return Padding(
           padding: const EdgeInsets.all(20),
-          height: 180,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'คุณต้องการทำอะไร?',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'เลือกสิ่งที่ต้องการสร้าง',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildOptionButton(
-                    icon: Icons.work,
-                    label: 'ประกาศจ้างงาน',
-                    color: Colors.orange,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const PostJobScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildOptionButton(
-                    icon: Icons.store,
-                    label: 'ลงขายสินค้า',
-                    color: Colors.blue,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const PostProductScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE64A19),
+                  child: Icon(Icons.work, color: Colors.white),
+                ),
+                title: const Text('โพสต์ประกาศงาน'),
+                subtitle: const Text('หาคนช่วยงาน, ขนของ, ติวหนังสือ'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PostJobScreen()),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Colors.green,
+                  child: Icon(Icons.store, color: Colors.white),
+                ),
+                title: const Text('ลงขายสินค้า'),
+                subtitle: const Text('เสื้อผ้ามือสอง, หนังสือ, อุปกรณ์'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PostProductScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -87,129 +147,211 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildOptionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Stack(
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: color.withOpacity(0.1),
-            child: Icon(icon, color: color, size: 30),
+          Scaffold(
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              centerTitle: false,
+              // ✅ เพิ่มปุ่ม Logout ด้านซ้าย (เพื่อแก้ Error _logout ไม่ถูกใช้)
+              leading: IconButton(
+                icon: const Icon(Icons.logout, color: Colors.grey),
+                onPressed: _logout,
+                tooltip: 'ออกจากระบบ',
+              ),
+              title: const Text(
+                'UniJobs',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE64A19),
+                  fontSize: 24,
+                ),
+              ),
+              actions: [
+                // ปุ่ม Chat + Notification Badge
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('chat_rooms')
+                      .where(
+                        'users',
+                        arrayContains: FirebaseAuth.instance.currentUser?.uid,
+                      )
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    int unreadCount = 0;
+                    if (snapshot.hasData) {
+                      final myUid = FirebaseAuth.instance.currentUser?.uid;
+                      for (var doc in snapshot.data!.docs) {
+                        var data = doc.data() as Map<String, dynamic>;
+                        if (data['readBy'] != null &&
+                            data['readBy'][myUid] == false) {
+                          unreadCount++;
+                        }
+                      }
+                    }
+
+                    return Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.black87,
+                          ),
+                          onPressed: _onChatIconPressed,
+                        ),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '$unreadCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+
+                // รูปโปรไฟล์
+                GestureDetector(
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProfileScreen(),
+                      ),
+                    );
+                    setState(() {});
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: CircleAvatar(
+                      backgroundImage: NetworkImage(currentUser.imageUrl),
+                      radius: 18,
+                    ),
+                  ),
+                ),
+              ],
+              bottom: const TabBar(
+                indicatorColor: Color(0xFFE64A19),
+                labelColor: Color(0xFFE64A19),
+                unselectedLabelColor: Colors.grey,
+                tabs: [
+                  Tab(icon: Icon(Icons.campaign), text: 'ประกาศงาน'),
+                  Tab(icon: Icon(Icons.store), text: 'ตลาดนัด'),
+                ],
+              ),
+            ),
+
+            body: ResponsiveContainer(
+              child: TabBarView(
+                children: [
+                  // Tab 1: Jobs
+                  Column(
+                    children: [
+                      _buildCategorySelector(),
+                      Expanded(child: _buildRealJobList(context)),
+                    ],
+                  ),
+                  // Tab 2: Market
+                  const MarketScreen(),
+                ],
+              ),
+            ),
+
+            floatingActionButton: FloatingActionButton(
+              onPressed: _showCreateOptions,
+              backgroundColor: const Color(0xFFE64A19),
+              child: const Icon(Icons.add, color: Colors.white, size: 32),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+
+          // --- Web Chat Overlay ---
+          if (kIsWeb || MediaQuery.of(context).size.width > 600)
+            WebChatOverlay(
+              showDropdown: _isChatDropdownOpen,
+              activeChatTarget: _activeChatUser,
+              isMinimized: _isChatMinimized,
+              onChatSelected: (user) {
+                setState(() {
+                  _activeChatUser = user;
+                  _isChatDropdownOpen = false;
+                  // ✅ แก้ไขชื่อตัวแปรตรงนี้ครับ
+                  _isChatMinimized = false;
+                });
+              },
+              onCloseChat: () {
+                setState(() => _activeChatUser = null);
+              },
+              onMinimizeChat: () {
+                setState(() => _isChatMinimized = !_isChatMinimized);
+              },
+            ),
         ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.orange,
-          centerTitle: true,
-          title: const Text(
-            'UniJobs',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
-                );
-              },
-            ),
-            GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+  // --- Helper Widget: ปุ่มเลือกหมวดหมู่งาน ---
+  Widget _buildCategorySelector() {
+    return Container(
+      height: 60,
+      color: Colors.white,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        scrollDirection: Axis.horizontal,
+        itemCount: _jobCategories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final cat = _jobCategories[index];
+          final isSel = _selectedJobCategory == cat;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedJobCategory = cat),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSel
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20),
+                border: isSel ? null : Border.all(color: Colors.grey.shade300),
               ),
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    (user?.photoURL != null && user!.photoURL!.isNotEmpty)
-                        ? user!.photoURL!
-                        : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-                  ),
-                  radius: 18,
-                  onBackgroundImageError: (_, __) {},
+              child: Text(
+                cat,
+                style: TextStyle(
+                  color: isSel ? Colors.white : Colors.grey.shade700,
+                  fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ),
-          ],
-          bottom: const TabBar(
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: [
-              Tab(icon: Icon(Icons.campaign), text: 'ประกาศงาน'),
-              Tab(icon: Icon(Icons.store), text: 'ตลาดนัด'),
-            ],
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            // Tab 1: Jobs
-            Column(
-              children: [
-                Container(
-                  height: 60,
-                  color: Colors.white,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _jobCategories.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final cat = _jobCategories[index];
-                      final isSel = _selectedJobCategory == cat;
-                      return ChoiceChip(
-                        label: Text(cat),
-                        selected: isSel,
-                        selectedColor: Colors.orange.shade100,
-                        labelStyle: TextStyle(
-                          color: isSel ? Colors.orange.shade900 : Colors.black,
-                        ),
-                        onSelected: (v) =>
-                            setState(() => _selectedJobCategory = cat),
-                      );
-                    },
-                  ),
-                ),
-                Expanded(child: _buildRealJobList(context)),
-              ],
-            ),
-
-            // Tab 2: Market
-            const MarketScreen(),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _showCreateOptions,
-          backgroundColor: Colors.orange,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add, color: Colors.white, size: 32),
-        ),
+          );
+        },
       ),
     );
   }
 
+  // --- Helper Widget: รายการงาน ---
   Widget _buildRealJobList(BuildContext context) {
     Query query = FirebaseFirestore.instance
         .collection('jobs')
@@ -222,100 +364,135 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: query.orderBy('created_at', descending: true).snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        if (!snapshot.hasData) {
+        if (!snapshot.hasData)
           return const Center(child: CircularProgressIndicator());
-        }
         if (snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('ไม่พบงานในหมวดหมู่นี้'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.search_off, size: 60, color: Colors.grey.shade300),
+                const SizedBox(height: 10),
+                Text(
+                  'ไม่พบงานในหมวดหมู่นี้',
+                  style: TextStyle(color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
           itemCount: snapshot.data!.docs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            Job job = Job.fromFirestore(doc);
-
-            // ✅✅✅ แก้ตรงนี้ครับ: ใช้ imageUrls แทน imageUrl ✅✅✅
-            String thumb = 'https://via.placeholder.com/150'; // ค่าเริ่มต้น
-            if (job.imageUrls.isNotEmpty) {
-              thumb = job.imageUrls.first; // เอารูปแรกมาโชว์
-            }
+            Job job = Job.fromFirestore(snapshot.data!.docs[index]);
+            String thumb = job.imageUrls.isNotEmpty
+                ? job.imageUrls.first
+                : 'https://via.placeholder.com/150';
 
             return Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(10),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    thumb,
-                    width: 100,
-                    height: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => Container(
-                      color: Colors.grey[300],
-                      width: 100,
-                      height: 100,
-                      child: const Icon(Icons.image),
-                    ),
-                  ),
-                ),
-                title: Text(
-                  job.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            job.location,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${job.price} บาท',
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey,
-                ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 120,
+                      height: 120,
+                      child: Image.network(
+                        thumb,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.location_on,
+                                  size: 14,
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    job.location,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${job.price} ฿',
+                                  style: TextStyle(
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundImage: NetworkImage(
+                                        job.authorAvatar,
+                                      ),
+                                      radius: 8,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      width: 60,
+                                      child: Text(
+                                        job.authorName,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
