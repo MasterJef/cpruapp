@@ -1,8 +1,10 @@
+// lib/screens/chat_room_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart'; // อย่าลืม import intl
+import 'package:intl/intl.dart';
 import '../services/chat_service.dart';
+import '../widgets/responsive_layout.dart'; // Import Responsive
 
 class ChatRoomScreen extends StatefulWidget {
   final String targetUserId;
@@ -25,12 +27,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final ChatService _chatService = ChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ส่งข้อความ
   void _sendMessage() async {
-    if (_messageController.text.isNotEmpty) {
+    if (_messageController.text.trim().isNotEmpty) {
       await _chatService.sendMessage(
         widget.targetUserId,
-        _messageController.text,
+        _messageController.text.trim(),
       );
       _messageController.clear();
     }
@@ -38,10 +39,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ใช้ ResponsiveContainer ครอบทั้งหน้า (รวม AppBar)
+    // แต่เพื่อให้ AppBar สวยงาม เราจะครอบที่ Body หรือสร้าง Scaffold ซ้อน
+    // วิธีที่ดีที่สุดสำหรับ Web App คือให้ Scaffold หลักอยู่ที่นี่ แล้วครอบ Body
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F4F6), // สีพื้นหลังห้องแชท
       appBar: AppBar(
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
+        titleSpacing: 0,
         title: Row(
           children: [
             CircleAvatar(
@@ -53,7 +58,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
               child: Text(
                 widget.targetUserName,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -61,126 +66,175 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             ),
           ],
         ),
-      ),
-      body: Column(
-        children: [
-          // ส่วนแสดงรายการข้อความ
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _chatService.getMessages(
-                _auth.currentUser!.uid,
-                widget.targetUserId,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.hasError)
-                  return const Center(child: Text('เกิดข้อผิดพลาด'));
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  return const Center(child: CircularProgressIndicator());
-
-                // Auto Scroll: ใช้ ListView reverse=true เพื่อให้ข้อความใหม่อยู่ล่างสุดเสมอ
-                var docs = snapshot.data!.docs.reversed.toList();
-
-                return ListView.builder(
-                  reverse: true,
-                  itemCount: docs.length,
-                  padding: const EdgeInsets.all(10),
-                  itemBuilder: (context, index) {
-                    return _buildMessageItem(docs[index]);
-                  },
-                );
-              },
-            ),
-          ),
-
-          // ส่วนพิมพ์ข้อความ
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(color: Colors.grey.shade300, blurRadius: 5),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'พิมพ์ข้อความ...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[200],
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.orange,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _sendMessage,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        actions: [
+          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
         ],
       ),
-    );
-  }
-
-  Widget _buildMessageItem(DocumentSnapshot document) {
-    Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-
-    // ตรวจสอบว่าเป็นข้อความของเราหรือไม่
-    bool isMe = data['senderId'] == _auth.currentUser!.uid;
-
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isMe ? Colors.orange : Colors.grey[300],
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: isMe ? const Radius.circular(12) : Radius.zero,
-            bottomRight: isMe ? Radius.zero : const Radius.circular(12),
-          ),
-        ),
+      // ครอบ ResponsiveContainer ที่นี่
+      body: ResponsiveContainer(
         child: Column(
-          crossAxisAlignment: isMe
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
           children: [
-            Text(
-              data['text'],
-              style: TextStyle(
-                color: isMe ? Colors.white : Colors.black,
-                fontSize: 16,
+            // --- Message List ---
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _chatService.getMessages(
+                  _auth.currentUser!.uid,
+                  widget.targetUserId,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError)
+                    return const Center(child: Text('เกิดข้อผิดพลาด'));
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    return const Center(child: CircularProgressIndicator());
+
+                  var docs = snapshot.data!.docs.reversed.toList();
+
+                  return ListView.builder(
+                    reverse: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      return _buildModernMessageItem(docs[index]);
+                    },
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              DateFormat(
-                'HH:mm',
-              ).format((data['createdAt'] as Timestamp).toDate()),
-              style: TextStyle(
-                color: isMe ? Colors.white70 : Colors.black54,
-                fontSize: 10,
+
+            // --- Floating Input Bar ---
+            SafeArea(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                color: Colors.transparent, // โปร่งใสเพื่อให้เห็นพื้นหลัง
+                child: Row(
+                  children: [
+                    // ปุ่มเพิ่มรูป (Mock)
+                    IconButton(
+                      icon: Icon(
+                        Icons.add_circle,
+                        color: Theme.of(context).primaryColor,
+                        size: 28,
+                      ),
+                      onPressed: () {},
+                    ),
+                    // ช่องพิมพ์ข้อความ
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: const InputDecoration(
+                            hintText: 'พิมพ์ข้อความ...',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // ปุ่มส่ง
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Theme.of(context).primaryColor,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: _sendMessage,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Widget สร้าง Bubble ข้อความแบบ Modern
+  Widget _buildModernMessageItem(DocumentSnapshot document) {
+    Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+    bool isMe = data['senderId'] == _auth.currentUser!.uid;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: isMe
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          Container(
+            constraints: const BoxConstraints(
+              maxWidth: 250,
+            ), // จำกัดความกว้างข้อความ
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              // ไล่สีสำหรับข้อความเรา / สีขาวสำหรับเขา
+              gradient: isMe
+                  ? LinearGradient(
+                      colors: [
+                        Theme.of(context).primaryColor,
+                        Theme.of(context).colorScheme.secondary,
+                      ],
+                    )
+                  : null,
+              color: isMe ? null : Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(20),
+                topRight: const Radius.circular(20),
+                bottomLeft: isMe
+                    ? const Radius.circular(20)
+                    : const Radius.circular(4),
+                bottomRight: isMe
+                    ? const Radius.circular(4)
+                    : const Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Text(
+              data['text'],
+              style: TextStyle(
+                color: isMe ? Colors.white : Colors.black87,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+            child: Text(
+              DateFormat(
+                'HH:mm',
+              ).format((data['createdAt'] as Timestamp).toDate()),
+              style: TextStyle(color: Colors.grey[500], fontSize: 10),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,15 +1,13 @@
-import 'package:cprujobapp/models/user_model.dart';
-import 'package:cprujobapp/screens/chat_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cprujobapp/models/job_model.dart';
 import 'package:cprujobapp/screens/job_detail_screen.dart';
 import 'package:cprujobapp/screens/post_job_screen.dart';
-import 'package:cprujobapp/screens/market_screen.dart'; // ต้องมีไฟล์นี้แล้ว
+import 'package:cprujobapp/screens/market_screen.dart';
 import 'package:cprujobapp/screens/profile_screen.dart';
-import 'package:cprujobapp/screens/post_product_screen.dart'; // ต้องมีไฟล์นี้แล้ว
-// import 'package:cprujobapp/widgets/universal_image.dart'; // ใช้ถ้ามี
+import 'package:cprujobapp/screens/post_product_screen.dart';
+import 'package:cprujobapp/screens/chat_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
   String _selectedJobCategory = 'ทั้งหมด';
 
-  // ฟังก์ชันแสดงตัวเลือกโพสต์ (Floating Action Button)
   void _showCreateOptions() {
     showModalBottomSheet(
       context: context,
@@ -115,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2, // มี 2 แท็บ: งาน, ตลาด
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.orange,
@@ -125,15 +122,12 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
           actions: [
-            // 👇 เพิ่มปุ่ม Chat ตรงนี้
             IconButton(
               icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const ChatListScreen(),
-                  ), // ไปหน้ารายการแชท
+                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
                 );
               },
             ),
@@ -146,8 +140,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(right: 16.0),
                 child: CircleAvatar(
                   backgroundImage: NetworkImage(
-                    (currentUser.imageUrl.isNotEmpty)
-                        ? currentUser.imageUrl
+                    (user?.photoURL != null && user!.photoURL!.isNotEmpty)
+                        ? user!.photoURL!
                         : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
                   ),
                   radius: 18,
@@ -166,13 +160,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        // 👇 ส่วน Body ที่ AI ให้มา
         body: TabBarView(
           children: [
-            // Tab 1: รายการงาน (Jobs) + Filter
+            // Tab 1: Jobs
             Column(
               children: [
-                // แถบเลือกหมวดหมู่
                 Container(
                   height: 60,
                   color: Colors.white,
@@ -200,16 +192,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ),
-                // รายการงาน
                 Expanded(child: _buildRealJobList(context)),
               ],
             ),
 
-            // Tab 2: ตลาดนัด (Market)
-            const MarketScreen(), // ต้องมีไฟล์ market_screen.dart
+            // Tab 2: Market
+            const MarketScreen(),
           ],
         ),
-        // 👇 ปุ่มบวก (+)
         floatingActionButton: FloatingActionButton(
           onPressed: _showCreateOptions,
           backgroundColor: Colors.orange,
@@ -220,13 +210,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget สร้างรายการงาน (Logic เดิม)
   Widget _buildRealJobList(BuildContext context) {
     Query query = FirebaseFirestore.instance
         .collection('jobs')
         .where('status', isEqualTo: 'open');
 
-    // กรองหมวดหมู่
     if (_selectedJobCategory != 'ทั้งหมด') {
       query = query.where('category', isEqualTo: _selectedJobCategory);
     }
@@ -234,12 +222,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: query.orderBy('created_at', descending: true).snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
-        if (!snapshot.hasData)
+        }
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
-        if (snapshot.data!.docs.isEmpty)
+        }
+        if (snapshot.data!.docs.isEmpty) {
           return const Center(child: Text('ไม่พบงานในหมวดหมู่นี้'));
+        }
 
         return ListView.builder(
           padding: const EdgeInsets.all(12),
@@ -248,12 +239,11 @@ class _HomeScreenState extends State<HomeScreen> {
             final doc = snapshot.data!.docs[index];
             Job job = Job.fromFirestore(doc);
 
-            // เช็ครูปภาพ (รองรับ list หรือ string)
-            // ถ้าคุณแก้ Model เป็น imageUrls (List) ให้ใช้ job.imageUrls.first
-            // ถ้ายังเป็น imageUrl (String) ให้ใช้ job.imageUrl
-            String thumb = job.imageUrls.isNotEmpty
-                ? job.imageUrls.first
-                : 'https://via.placeholder.com/150';
+            // ✅✅✅ แก้ตรงนี้ครับ: ใช้ imageUrls แทน imageUrl ✅✅✅
+            String thumb = 'https://via.placeholder.com/150'; // ค่าเริ่มต้น
+            if (job.imageUrls.isNotEmpty) {
+              thumb = job.imageUrls.first; // เอารูปแรกมาโชว์
+            }
 
             return Card(
               elevation: 2,
