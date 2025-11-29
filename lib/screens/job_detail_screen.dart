@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/job_model.dart';
 import '../widgets/full_screen_image.dart'; // Import Widget ดูรูปเต็มจอ
 import 'post_job_screen.dart';
+import 'package:cprujobapp/screens/chat_room_screen.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final Job job;
@@ -15,6 +16,40 @@ class JobDetailScreen extends StatefulWidget {
 
 class _JobDetailScreenState extends State<JobDetailScreen> {
   int _currentImageIndex = 0; // เก็บตำแหน่งรูปปัจจุบัน
+
+  // เพิ่มฟังก์ชันนี้ไว้ใน _JobDetailScreenState
+  // แก้ไขฟังก์ชันนี้ใน job_detail_screen.dart
+  Future<void> _startChat() async {
+    try {
+      // 1. ดึงข้อมูลเจ้าของงาน
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.job.createdBy)
+          .get();
+
+      if (!userDoc.exists) return;
+
+      var userData = userDoc.data() as Map<String, dynamic>;
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatRoomScreen(
+              // 👇👇 แก้ชื่อตัวแปรตรงนี้ให้ตรงกับ Error ครับ 👇👇
+              targetUserId: widget.job.createdBy, // เดิมอาจเป็น targetUid
+              targetUserName:
+                  userData['firstName'] ?? 'User', // เดิมอาจเป็น targetName
+              targetUserImage:
+                  userData['imageUrl'] ?? '', // เดิมอาจเป็น targetImage
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error fetching user: $e');
+    }
+  }
 
   Future<void> _acceptJob(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -217,16 +252,34 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           ? null
           : Container(
               padding: const EdgeInsets.all(16),
-              child: FilledButton(
-                onPressed: () => _acceptJob(context),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text(
-                  'รับงานนี้',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _startChat, // เรียกฟังก์ชันข้างบน
+                    icon: const Icon(Icons.chat),
+                    label: const Text('ทักแชทสอบถาม'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.blue, // เปลี่ยนสีให้เด่นหน่อย
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: () => _acceptJob(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text(
+                      'รับงานนี้',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
     );
