@@ -71,7 +71,7 @@ class WebChatOverlay extends StatelessWidget {
         if (activeChatTarget != null)
           Positioned(
             bottom: 0,
-            right: 80, // ห่างจากขอบขวา
+            left: 20, // ห่างจากขอบขวา
             child: Material(
               elevation: 10,
               borderRadius: const BorderRadius.vertical(

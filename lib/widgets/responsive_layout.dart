@@ -17,11 +17,11 @@ class ResponsiveContainer extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         // เงื่อนไข: ถ้าเป็น Web หรือหน้าจอกว้างกว่า 600px
-        if (kIsWeb || constraints.maxWidth > 600) {
+        if (kIsWeb || constraints.maxWidth > 800) {
           return Center(
             child: Container(
               // ล็อกความกว้างให้เหมือน Tablet/Mobile แนวตั้ง
-              constraints: const BoxConstraints(maxWidth: 500),
+              constraints: const BoxConstraints(maxWidth: 900),
               decoration: BoxDecoration(
                 color:
                     backgroundColor ??
