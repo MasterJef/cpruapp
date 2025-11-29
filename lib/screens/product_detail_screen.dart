@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cprujobapp/screens/chat_room_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/product_model.dart';
@@ -14,6 +16,38 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _currentImageIndex = 0;
+
+  Future<void> _startChat() async {
+    try {
+      // 1. ดึงข้อมูลเจ้าของงาน
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.product.sellerId)
+          .get();
+
+      if (!userDoc.exists) return;
+
+      var userData = userDoc.data() as Map<String, dynamic>;
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatRoomScreen(
+              // 👇👇 แก้ชื่อตัวแปรตรงนี้ให้ตรงกับ Error ครับ 👇👇
+              targetUserId: widget.product.sellerId, // เดิมอาจเป็น targetUid
+              targetUserName:
+                  userData['firstName'] ?? 'User', // เดิมอาจเป็น targetName
+              targetUserImage:
+                  userData['imageUrl'] ?? '', // เดิมอาจเป็น targetImage
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error fetching user: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +190,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         child: FilledButton.icon(
-          onPressed: isOwner ? null : () {},
+          onPressed: isOwner ? null : _startChat,
           icon: const Icon(Icons.chat_bubble_outline),
           label: Text(isOwner ? 'สินค้าของคุณ' : 'ทักแชท / สนใจสินค้า'),
           style: FilledButton.styleFrom(

@@ -250,33 +250,22 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       ),
       bottomNavigationBar: (isOwner || isAccepted)
           ? null
-          : Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+          : BottomAppBar(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
                 children: [
-                  FilledButton.icon(
-                    onPressed: _startChat, // เรียกฟังก์ชันข้างบน
+                  IconButton.filledTonal(
+                    onPressed: _startChat,
                     icon: const Icon(Icons.chat),
-                    label: const Text('ทักแชทสอบถาม'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.blue, // เปลี่ยนสีให้เด่นหน่อย
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                    tooltip: 'ทักแชท',
                   ),
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: () => _acceptJob(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text(
-                      'รับงานนี้',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FloatingActionButton.extended(
+                      onPressed: () => _acceptJob(context),
+                      label: const Text('รับงานนี้'),
+                      icon: const Icon(Icons.check),
+                      elevation: 0,
                     ),
                   ),
                 ],

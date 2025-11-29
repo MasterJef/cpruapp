@@ -1,4 +1,5 @@
 import 'package:cprujobapp/models/user_model.dart';
+import 'package:cprujobapp/screens/chat_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -124,6 +125,18 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
           actions: [
+            // 👇 เพิ่มปุ่ม Chat ตรงนี้
+            IconButton(
+              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ChatListScreen(),
+                  ), // ไปหน้ารายการแชท
+                );
+              },
+            ),
             GestureDetector(
               onTap: () => Navigator.push(
                 context,
@@ -132,7 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: CircleAvatar(
-                  // อย่าลืม import 'package:cprujobapp/models/user_model.dart'; ด้านบน
                   backgroundImage: NetworkImage(
                     (currentUser.imageUrl.isNotEmpty)
                         ? currentUser.imageUrl
@@ -144,7 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-          // 👇 ส่วน TabBar ที่ AI ให้มา
           bottom: const TabBar(
             indicatorColor: Colors.white,
             labelColor: Colors.white,

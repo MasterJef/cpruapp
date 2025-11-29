@@ -7,11 +7,12 @@ class ChatService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // 1. สร้าง ID ห้องแชท (เรียงตามตัวอักษรเพื่อให้ ID เหมือนเดิมเสมอ)
-  String getChatRoomId(String userId1, String userId2) {
-    List<String> ids = [userId1, userId2];
-    ids.sort(); // เรียงน้อยไปมาก
-    return ids.join("_"); // เช่น "uidA_uidB"
+  String getChatRoomId(String user1, String user2) {
+    if (user1.compareTo(user2) > 0) {
+      return '${user1}_$user2';
+    } else {
+      return '${user2}_$user1';
+    }
   }
 
   // 2. ส่งข้อความ
