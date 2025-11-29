@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'; // จำเป็นสำหรับ kIsWeb
 
-// Import หน้าจอต่างๆ (เช็คชื่อโฟลเดอร์ให้ตรงนะครับ)
+// Import หน้าจอต่างๆ
 import 'package:cprujobapp/screens/login_screen.dart';
-// import 'package:cprujobapp/screens/home_screen.dart'; // เปิดใช้อันนี้ถ้าอยากข้ามหน้า Login ไปเทส
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // --- ส่วนเชื่อมต่อ Firebase ---
   if (kIsWeb) {
-    // กรณีรันบนเว็บ (Chrome)
     await Firebase.initializeApp(
       options: const FirebaseOptions(
         apiKey: "AIzaSyADZx4zRveKQLg_ho1RBkGIp-L0xqXDpuM",
@@ -24,7 +22,6 @@ void main() async {
       ),
     );
   } else {
-    // กรณีรันบนมือถือ (Android/iOS) มันจะอ่านไฟล์ google-services.json เอง
     await Firebase.initializeApp();
   }
   // ---------------------------
@@ -38,17 +35,56 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // ปิดป้าย Debug มุมขวาบน
+      debugShowCheckedModeBanner: false,
       title: 'UniJobs',
+
+      // --- ตั้งค่า Theme ใหม่ (แก้ไขแล้ว) ---
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF6B00), // สีส้มธีมหลัก
-          primary: const Color(0xFFFF6B00),
-        ),
         useMaterial3: true,
-        fontFamily: 'Sarabun', // (ถ้ามีฟอนต์) หรือลบออกถ้าไม่มี
+        // fontFamily: 'Sarabun', // เปิดใช้ถ้าลงฟอนต์แล้ว
+
+        // 1. Color Palette
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFE64A19), // Deep Orange
+          primary: const Color(0xFFE64A19),
+          secondary: const Color(0xFFFF8A65),
+          surface: Colors.white,
+          background: const Color(0xFFF8F9FA),
+        ),
+
+        // 2. Background Color
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+
+        // 3. AppBar Style
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: IconThemeData(color: Colors.black87),
+        ),
+
+        // 5. Input Style
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE64A19), width: 2),
+          ),
+        ),
       ),
-      // 👇 กำหนดหน้าแรกของแอพตรงนี้
+
+      // หน้าแรก
       home: const LoginScreen(),
     );
   }
