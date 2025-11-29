@@ -128,48 +128,60 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   ),
                 );
               },
-              child: Container(
-                height: 300,
-                color: Colors.black, // พื้นหลังดำให้ดูพรีเมียม
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    PageView.builder(
-                      itemCount: widget.job.imageUrls.length,
-                      onPageChanged: (index) {
-                        setState(() => _currentImageIndex = index);
-                      },
-                      itemBuilder: (context, index) {
-                        return Image.network(
-                          widget.job.imageUrls[index],
-                          fit: BoxFit.contain, // รูปไม่โดนตัด
-                        );
-                      },
+              child: GestureDetector(
+                onTap: () {
+                  // กดแล้วไปหน้าดูรูปเต็มจอ
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FullScreenImageView(
+                        imageUrls: widget.job.imageUrls, // ส่งไปทั้งลิสต์
+                        initialIndex: _currentImageIndex,
+                      ),
                     ),
-                    // Dots Indicator
-                    if (widget.job.imageUrls.length > 1)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(widget.job.imageUrls.length, (
-                            index,
-                          ) {
-                            return Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _currentImageIndex == index
-                                    ? Colors.orange
-                                    : Colors.grey,
-                              ),
-                            );
-                          }),
+                  );
+                },
+                child: Container(
+                  height: 300, // ความสูงกำลังดี (ไม่สูงเกิน ไม่เตี้ยเกิน)
+                  width: double.infinity,
+                  color: Colors.grey[200], // สีพื้นหลังตอนโหลด
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      PageView.builder(
+                        itemCount: widget.job.imageUrls.length,
+                        onPageChanged: (index) =>
+                            setState(() => _currentImageIndex = index),
+                        itemBuilder: (context, index) {
+                          return Image.network(
+                            widget.job.imageUrls[index],
+                            fit: BoxFit
+                                .cover, // ✅ ใช้ cover ให้เต็มสวยเหมือน Shopee
+                            width: double.infinity,
+                          );
+                        },
+                      ),
+                      // ป้ายบอกจำนวนรูป (เช่น 1/3)
+                      Container(
+                        margin: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_currentImageIndex + 1}/${widget.job.imageUrls.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
