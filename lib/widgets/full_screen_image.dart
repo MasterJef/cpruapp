@@ -26,11 +26,17 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // พื้นหลังดำดูรูปชัดสุด
+      backgroundColor: Colors.white, // ✅ พื้นหลังขาว
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white, // ✅ AppBar ขาว
+        foregroundColor: Colors.black, // ไอคอนสีดำ
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
       ),
       body: PageView.builder(
         controller: _pageController,
@@ -43,7 +49,7 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
             child: Center(
               child: Image.network(
                 widget.imageUrls[index],
-                fit: BoxFit.contain, // ✅ ให้เห็นรูปครบทุกส่วน
+                fit: BoxFit.contain, // ✅ เห็นรูปครบ
               ),
             ),
           );
