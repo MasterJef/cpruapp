@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/product_model.dart';
-import '../widgets/full_screen_image.dart';
-import 'post_product_screen.dart';
-// import 'chat_room_screen.dart';
+import 'package:cprujobapp/models/product_model.dart';
+import 'package:cprujobapp/screens/chat_room_screen.dart';
+import 'package:cprujobapp/screens/post_product_screen.dart';
+import 'package:cprujobapp/widgets/product_image_slider.dart'; // ✅ ใช้ Slider
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -15,344 +15,202 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  int _currentImageIndex = 0;
+  final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  Future<void> _deleteProduct(BuildContext context) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ลบสินค้า'),
-        content: const Text('ต้องการลบสินค้านี้ใช่หรือไม่?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+  // ฟังก์ชันทักแชทคนขาย
+  Future<void> _startChat() async {
+    try {
+      var userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.product.sellerId)
+          .get();
 
-    if (confirm == true) {
-      await FirebaseFirestore.instance
-          .collection('market_items')
-          .doc(widget.product.id)
-          .delete();
+      if (!userDoc.exists) return;
+      var userData = userDoc.data() as Map<String, dynamic>;
+
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
+        Navigator.push(
           context,
-        ).showSnackBar(const SnackBar(content: Text('ลบสินค้าแล้ว')));
+          MaterialPageRoute(
+            builder: (_) => ChatRoomScreen(
+              targetUserId: widget.product.sellerId,
+              targetUserName: userData['firstName'] ?? 'Seller',
+              targetUserImage: userData['imageUrl'] ?? '',
+            ),
+          ),
+        );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isOwner =
-        FirebaseAuth.instance.currentUser?.uid == widget.product.sellerId;
+    bool isOwner = widget.product.sellerId == _currentUserId;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        bool isDesktop = constraints.maxWidth > 900;
-
-        return Scaffold(
-          extendBodyBehindAppBar: !isDesktop,
-          appBar: AppBar(
-            backgroundColor: isDesktop ? Colors.white : Colors.transparent,
-            elevation: 0,
-            iconTheme: IconThemeData(
-              color: isDesktop ? Colors.black : Colors.white,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('รายละเอียดสินค้า'),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+        actions: [
+          if (isOwner)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostProductScreen(product: widget.product),
+                ),
+              ),
             ),
-            title: isDesktop
-                ? const Text(
-                    'รายละเอียดสินค้า',
-                    style: TextStyle(color: Colors.black),
-                  )
-                : null,
-            actions: [
-              if (isOwner) ...[
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.white),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            PostProductScreen(product: widget.product),
+        ],
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // --- Desktop View (> 900px) แบ่งครึ่ง ---
+          if (constraints.maxWidth > 900) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ซ้าย: รูปภาพ
+                Expanded(
+                  flex: 5,
+                  child: Container(
+                    color: Colors.black,
+                    height: double.infinity,
+                    child: Center(
+                      child: ProductImageSlider(
+                        imageUrls: widget.product.imageUrls,
                       ),
                     ),
                   ),
                 ),
-                Container(
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent),
-                    onPressed: () => _deleteProduct(context),
+                // ขวา: ข้อมูล
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(40),
+                          child: _buildContent(context, isOwner),
+                        ),
+                      ),
+                      _buildBottomActionBar(context, isOwner, isDesktop: true),
+                    ],
                   ),
                 ),
               ],
-            ],
-          ),
-          body: isDesktop
-              ? _buildDesktopLayout(context, isOwner)
-              : _buildMobileLayout(context, isOwner),
+            );
+          }
 
-          bottomNavigationBar: isDesktop
-              ? null
-              : _buildBottomActionBar(context, isOwner),
-        );
-      },
-    );
-  }
-
-  Widget _buildDesktopLayout(BuildContext context, bool isOwner) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: Container(
-            color: Colors.black,
-            child: _buildImageGallery(isDesktop: true),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Column(
+          // --- Mobile View เรียงลงมา ---
+          return Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 30,
+                  child: Column(
+                    children: [
+                      Container(
+                        color: Colors.black,
+                        child: ProductImageSlider(
+                          imageUrls: widget.product.imageUrls,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _buildContent(context, isOwner),
+                      ),
+                    ],
                   ),
-                  child: _buildContent(context),
                 ),
               ),
-              _buildBottomActionBar(context, isOwner, isDesktop: true),
+              _buildBottomActionBar(context, isOwner, isDesktop: false),
             ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileLayout(BuildContext context, bool isOwner) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildImageGallery(isDesktop: false),
-          Container(
-            transform: Matrix4.translationValues(0.0, -20.0, 0.0),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: _buildContent(context),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildImageGallery({required bool isDesktop}) {
-    final double height = isDesktop
-        ? double.infinity
-        : MediaQuery.of(context).size.height * 0.45;
-
-    return Stack(
-      children: [
-        SizedBox(
-          height: height,
-          width: double.infinity,
-          child: PageView.builder(
-            itemCount: widget.product.imageUrls.length,
-            onPageChanged: (index) =>
-                setState(() => _currentImageIndex = index),
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FullScreenImageView(
-                        imageUrls: widget.product.imageUrls,
-                        initialIndex: index,
-                      ),
-                    ),
-                  );
-                },
-                child: Image.network(
-                  widget.product.imageUrls[index],
-                  fit: isDesktop ? BoxFit.contain : BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey[900],
-                    child: const Icon(
-                      Icons.broken_image,
-                      color: Colors.white54,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        Positioned(
-          top: isDesktop ? 20 : MediaQuery.of(context).padding.top + 10,
-          right: 20,
-          child: IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => FullScreenImageView(
-                    imageUrls: widget.product.imageUrls,
-                    initialIndex: _currentImageIndex,
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.fullscreen, color: Colors.white, size: 30),
-            style: IconButton.styleFrom(backgroundColor: Colors.black45),
-          ),
-        ),
-        if (widget.product.imageUrls.length > 1)
-          Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(widget.product.imageUrls.length, (index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentImageIndex == index
-                        ? const Color(0xFFE64A19)
-                        : Colors.white54,
-                  ),
-                );
-              }),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildContent(BuildContext context) {
+  Widget _buildContent(BuildContext context, bool isOwner) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 8,
+        // ผู้ขาย
+        Row(
           children: [
-            Chip(
-              label: Text(widget.product.condition),
-              backgroundColor: Colors.grey[100],
+            CircleAvatar(
+              radius: 24,
+              backgroundImage: NetworkImage(
+                widget.product.authorAvatar.isNotEmpty
+                    ? widget.product.authorAvatar
+                    : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+              ),
             ),
-            Chip(
-              label: Text(widget.product.category),
-              backgroundColor: Colors.grey[100],
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.product.authorName.isNotEmpty
+                      ? widget.product.authorName
+                      : 'ไม่ระบุชื่อ',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  'ผู้ขาย',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const Divider(height: 30),
+
+        // ชื่อสินค้า & ราคา
         Text(
           widget.product.name,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            height: 1.2,
-          ),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
-          '${widget.product.price.toStringAsFixed(0)} บาท',
+          '฿${widget.product.price.toStringAsFixed(0)}',
           style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFFE64A19),
+            fontSize: 24,
+            color: Colors.deepOrange,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 32),
+
+        const SizedBox(height: 10),
+        // Tag สภาพสินค้า
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade200),
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundImage: NetworkImage(widget.product.authorAvatar),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.product.authorName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const Text(
-                      'ผู้ขาย',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  side: BorderSide(color: Colors.grey.shade300),
-                ),
-                child: const Text(
-                  'ดูร้านค้า',
-                  style: TextStyle(color: Colors.black87),
-                ),
-              ),
-            ],
-          ),
+          child: Text('สภาพ: ${widget.product.condition}'),
         ),
-        const SizedBox(height: 32),
+
+        const SizedBox(height: 20),
         const Text(
           'รายละเอียดสินค้า',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           widget.product.description,
-          style: const TextStyle(
-            fontSize: 16,
-            height: 1.6,
-            color: Colors.black87,
-          ),
+          style: const TextStyle(fontSize: 16, height: 1.5),
         ),
-        const SizedBox(height: 100),
       ],
     );
   }
@@ -360,63 +218,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildBottomActionBar(
     BuildContext context,
     bool isOwner, {
-    bool isDesktop = false,
+    required bool isDesktop,
   }) {
+    if (isOwner) return const SizedBox.shrink(); // เจ้าของไม่ต้องเห็นปุ่มซื้อ
+
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: isDesktop ? 24 : 16,
-      ),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-        boxShadow: isDesktop
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+        boxShadow: [
+          if (!isDesktop)
+            const BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, -2),
+            ),
+        ],
+        border: isDesktop
+            ? const Border(top: BorderSide(color: Colors.black12))
+            : null,
       ),
       child: Row(
         children: [
           Expanded(
-            flex: 1,
             child: OutlinedButton.icon(
-              onPressed: isOwner ? null : () {},
+              onPressed: _startChat,
               icon: const Icon(Icons.chat_bubble_outline),
               label: const Text('ทักแชท'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: const BorderSide(color: Color(0xFFE64A19)),
-                foregroundColor: const Color(0xFFE64A19),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
-            flex: 2,
-            child: FilledButton(
-              onPressed: isOwner ? null : () {},
+            flex: 2, // ปุ่มซื้อใหญ่กว่า
+            child: FilledButton.icon(
+              onPressed: () {
+                // Logic กดซื้อ (อาจจะทักแชทเหมือนกัน หรือจอง)
+                _startChat();
+              },
+              icon: const Icon(Icons.shopping_cart_checkout),
+              label: const Text('สนใจสินค้า'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE64A19),
-                disabledBackgroundColor: Colors.grey.shade300,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                isOwner ? 'สินค้าของคุณ' : 'ซื้อทันที',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                backgroundColor: Colors.deepOrange,
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
