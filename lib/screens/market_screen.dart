@@ -1,58 +1,156 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cprujobapp/widgets/item_card.dart'; // ✅ เรียกใช้ ItemCard
-// import 'product_detail_screen.dart'; // อย่าลืม import หน้ารายละเอียด
+import 'package:cprujobapp/models/product_model.dart';
+import 'package:cprujobapp/widgets/item_card.dart';
+import 'package:cprujobapp/screens/product_detail_screen.dart';
 
-class MarketScreen extends StatelessWidget {
+class MarketScreen extends StatefulWidget {
   const MarketScreen({super.key});
 
   @override
+  State<MarketScreen> createState() => _MarketScreenState();
+}
+
+class _MarketScreenState extends State<MarketScreen> {
+  String _selectedCategory = 'ทั้งหมด';
+  final List<String> _categories = [
+    'ทั้งหมด',
+    'เสื้อผ้า',
+    'หนังสือ',
+    'อุปกรณ์ไอที',
+    'ของใช้',
+    'อื่นๆ',
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('market_items') // ตรวจสอบชื่อ collection
-          .orderBy('created_at', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return const Center(child: Text('Error loading market'));
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty)
-          return const Center(child: Text('ยังไม่มีสินค้าลงขาย'));
-
-        return GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, // 2 คอลัมน์
-            childAspectRatio: 0.75, // สัดส่วน กว้าง:สูง (ปรับให้การ์ดดูสูงสวย)
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+    return Column(
+      children: [
+        // --- 1. Filter Bar (แถบเลือกหมวดหมู่) ---
+        Container(
+          height: 60,
+          color: Colors.white,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            scrollDirection: Axis.horizontal,
+            itemCount: _categories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final cat = _categories[index];
+              final isSel = _selectedCategory == cat;
+              return ChoiceChip(
+                label: Text(cat),
+                selected: isSel,
+                selectedColor: Colors.orange.shade100,
+                labelStyle: TextStyle(
+                  color: isSel ? Colors.orange.shade900 : Colors.black,
+                  fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (v) => setState(() => _selectedCategory = cat),
+              );
+            },
           ),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
+        ),
 
-            // ดึงข้อมูลมาใส่ ItemCard
-            return ItemCard(
-              title: data['name'] ?? 'สินค้า',
-              price: data['price']?.toString() ?? '0',
-              location:
-                  data['condition'] ??
-                  '', // เอาสภาพสินค้ามาใส่ช่อง Location แทน
-              imageUrl: data['imageUrl'] ?? '',
-              authorName: data['sellerName'] ?? 'ผู้ขาย',
-              authorAvatar: data['sellerAvatar'] ?? '',
-              onTap: () {
-                // Navigator.push(...) // ไปหน้า ProductDetail
-              },
-            );
-          },
-        );
-      },
+        // --- 2. Product Grid (ตารางสินค้า) ---
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: _getStream(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.storefront, size: 60, color: Colors.grey[300]),
+                      const SizedBox(height: 10),
+                      Text(
+                        'ไม่พบสินค้าในหมวดหมู่นี้',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              // Responsive Grid Layout
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  int crossAxisCount = 2; // มือถือ = 2
+                  if (constraints.maxWidth > 600) crossAxisCount = 3;
+                  if (constraints.maxWidth > 900) crossAxisCount = 4;
+                  if (constraints.maxWidth > 1200) crossAxisCount = 5;
+
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio:
+                          0.7, // ปรับสัดส่วนให้การ์ดสวย (สูงกว่ากว้าง)
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context, index) {
+                      final doc = snapshot.data!.docs[index];
+                      // แปลงข้อมูลเป็น Product Model
+                      // (ต้องมั่นใจว่า product_model.dart มี factory fromFirestore แล้ว)
+                      Product product = Product.fromFirestore(doc);
+
+                      // ดึงรูปแรกมาโชว์
+                      String thumb = product.imageUrls.isNotEmpty
+                          ? product.imageUrls.first
+                          : 'https://via.placeholder.com/300';
+
+                      return ItemCard(
+                        title: product.name,
+                        price: product.price.toStringAsFixed(
+                          0,
+                        ), // ราคาไม่ต้องมีหน่วย ItemCard ใส่ให้แล้ว
+                        location: '', // สินค้าไม่มี location ส่งค่าว่างไป
+                        imageUrl: thumb,
+                        authorName: product.authorName,
+                        authorAvatar: product.authorAvatar,
+                        tagText:
+                            product.condition, // ส่งสภาพสินค้าไปโชว์เป็น Tag
+                        footerText: 'ผู้ขาย: ${product.authorName}',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailScreen(product: product),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
+  }
+
+  Stream<QuerySnapshot> _getStream() {
+    Query query = FirebaseFirestore.instance.collection('market_items');
+
+    // กรองหมวดหมู่
+    if (_selectedCategory != 'ทั้งหมด') {
+      query = query.where('category', isEqualTo: _selectedCategory);
+    }
+
+    // เรียงลำดับ (ต้องมี Index ใน Firebase)
+    return query.orderBy('created_at', descending: true).snapshots();
   }
 }
