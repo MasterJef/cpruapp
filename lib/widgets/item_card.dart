@@ -4,9 +4,14 @@ class ItemCard extends StatelessWidget {
   final String title;
   final String price;
   final String imageUrl;
-  final String? footerText; // เช่น สถานที่ หรือ ชื่อคนขาย
-  final String? tagText; // เช่น "มือสอง", "งานด่วน"
   final VoidCallback onTap;
+
+  // ✅ เพิ่มตัวแปรพวกนี้เพื่อให้รับค่าได้ (ตั้งเป็น optional มีค่า default)
+  final String location;
+  final String authorName;
+  final String authorAvatar;
+  final String? tagText; // สำหรับสภาพสินค้า (มือสอง)
+  final String? footerText; // สำหรับข้อความด้านล่างสุด (ถ้ามี)
 
   const ItemCard({
     super.key,
@@ -14,56 +19,57 @@ class ItemCard extends StatelessWidget {
     required this.price,
     required this.imageUrl,
     required this.onTap,
-    this.footerText,
+    this.location = '', // ✅ ค่าเริ่มต้นเป็นว่าง
+    this.authorName = '', // ✅ ค่าเริ่มต้นเป็นว่าง
+    this.authorAvatar = '', // ✅ ค่าเริ่มต้นเป็นว่าง
     this.tagText,
+    this.footerText,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0, // สไตล์ Modern จะเน้น Border บางๆ มากกว่าเงาหนาๆ
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200), // เส้นขอบบางๆ
-      ),
-      clipBehavior: Clip.antiAlias,
-      color: Colors.white,
-      child: InkWell(
-        onTap: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        clipBehavior: Clip.antiAlias,
+        color: Colors.white,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 1. Image Section (1:1 Aspect Ratio) ---
+            // --- 1. รูปภาพ ---
             AspectRatio(
-              aspectRatio: 1.0, // สี่เหลี่ยมจัตุรัสแบบ Shopee/Lazada
+              aspectRatio: 1, // สี่เหลี่ยมจัตุรัส
               child: Stack(
-                fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[100],
-                        child: Icon(
-                          Icons.image_not_supported,
-                          color: Colors.grey[400],
-                        ),
-                      );
-                    },
+                  Positioned.fill(
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                  // Tag (ถ้ามี)
+                  // Tag มุมขวาบน (เช่น "มือสอง")
                   if (tagText != null && tagText!.isNotEmpty)
                     Positioned(
-                      top: 8,
-                      right: 8,
+                      top: 4,
+                      right: 4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.9),
+                          color: Colors.redAccent,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -80,7 +86,7 @@ class ItemCard extends StatelessWidget {
               ),
             ),
 
-            // --- 2. Info Section ---
+            // --- 2. ข้อมูล ---
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -88,62 +94,66 @@ class ItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500, // Medium weight
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
+                    // ชื่อ
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
 
-                    // Price & Footer
+                    // ราคา + รายละเอียด
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 4),
                         Text(
-                          price, // ส่งมาพร้อมหน่วยเงิน หรือใส่หน่วยที่นี่ก็ได้
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).primaryColor, // สีส้มตามธีม
+                          price.contains('฿')
+                              ? price
+                              : '฿$price', // เช็คว่ามี ฿ หรือยัง
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: Colors.deepOrange,
                           ),
                         ),
-                        if (footerText != null) ...[
-                          const SizedBox(height: 2),
+                        const SizedBox(height: 4),
+
+                        // แสดง Location (งาน) หรือ FooterText (สินค้า)
+                        if (footerText != null && footerText!.isNotEmpty)
+                          Text(
+                            footerText!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        else if (location.isNotEmpty)
                           Row(
                             children: [
-                              Icon(
-                                Icons.location_on_outlined,
-                                size: 12,
-                                color: Colors.grey[600],
+                              const Icon(
+                                Icons.location_on,
+                                size: 10,
+                                color: Colors.grey,
                               ),
                               const SizedBox(width: 2),
                               Expanded(
                                 child: Text(
-                                  footerText!,
+                                  location,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ],
                       ],
                     ),
                   ],
