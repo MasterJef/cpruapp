@@ -18,8 +18,9 @@ class ImageService {
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 800,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 90,
       );
       if (pickedFile != null) {
         return await _cropImage(pickedFile);
@@ -61,8 +62,9 @@ class ImageService {
   Future<List<XFile>> pickMultiImages() async {
     try {
       final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 80,
-        maxWidth: 800,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 90,
       );
       // หมายเหตุ: pickMultiImage ปกติจะไม่รองรับ Crop ทีละรูป (มันจะยุ่งยาก)
       // ดังนั้นเราจะส่งรูปดิบไปเลย หรือถ้าอยาก Crop ต้องวนลูปเรียก _cropImage

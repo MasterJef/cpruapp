@@ -80,7 +80,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 Expanded(
                   flex: 5,
                   child: Container(
-                    color: Colors.black,
+                    color: Colors.white,
                     height: double.infinity,
                     child: Center(
                       child: ProductImageSlider(
@@ -116,7 +116,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Column(
                     children: [
                       Container(
-                        color: Colors.black,
+                        color: Colors.white,
                         child: ProductImageSlider(
                           imageUrls: widget.product.imageUrls,
                         ),

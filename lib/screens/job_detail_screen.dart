@@ -136,7 +136,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 Expanded(
                   flex: 5,
                   child: Container(
-                    color: Colors.black,
+                    color: Colors.white,
                     height: double.infinity,
                     // ✅ เรียกใช้ Slider ตรงนี้
                     child: Center(
@@ -178,7 +178,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     children: [
                       // 1. แกลเลอรี่รูปภาพ (อยู่บนสุด)
                       Container(
-                        color: Colors.black,
+                        color: Colors.white,
                         // ✅ เรียกใช้ Slider ตรงนี้
                         child: ProductImageSlider(
                           imageUrls: widget.job.imageUrls,

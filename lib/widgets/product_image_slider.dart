@@ -1,3 +1,4 @@
+import 'package:cprujobapp/widgets/image_popup_dialog.dart';
 import 'package:flutter/material.dart';
 
 class ProductImageSlider extends StatefulWidget {
@@ -29,11 +30,11 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
       children: [
         // --- 1. รูปใหญ่ (Main Image) ---
         Container(
-          height: 400, // ✅ ปรับความสูงให้เต็มตา (400)
+          height: 400,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white, // ✅ พื้นหลังขาว
-            border: Border.all(color: Colors.grey.shade200), // ✅ เส้นขอบบางๆ
+            color: Colors.white,
+            border: Border.all(color: Colors.grey.shade200),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(
@@ -47,12 +48,27 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                 },
                 itemBuilder: (context, index) {
                   return GestureDetector(
+                    // ---------------------------------------------------------
+                    // 🔴 จุดที่แก้ไข: เปลี่ยนจาก Navigator.push เป็น showDialog
+                    // ---------------------------------------------------------
                     onTap: () {
-                      // ใส่โค้ดเปิดดูรูปเต็มจอ (FullScreenImageView) ตรงนี้
+                      showDialog(
+                        context: context,
+                        // สีพื้นหลังดำจางๆ (Opacity 50%)
+                        barrierColor: Colors.black.withOpacity(0.5),
+                        builder: (BuildContext context) {
+                          return ImagePopupDialog(
+                            imageUrls: widget.imageUrls,
+                            initialIndex: index,
+                          );
+                        },
+                      );
                     },
+
+                    // ---------------------------------------------------------
                     child: Image.network(
                       widget.imageUrls[index],
-                      fit: BoxFit.contain, // ✅ รูปไม่โดนตัด
+                      fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const Center(
                         child: Icon(Icons.error, color: Colors.grey),
                       ),
@@ -138,13 +154,12 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
           ),
         ),
 
-        // ✅ เพิ่มระยะห่างให้สวยงาม
         const SizedBox(height: 20),
 
         // --- 2. แถบรูปเล็ก (Thumbnail Strip) ---
         if (widget.imageUrls.length > 1)
           SizedBox(
-            height: 80, // ความสูงแถบรูปเล็ก
+            height: 80,
             child: Row(
               children: [
                 IconButton(
@@ -173,11 +188,9 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                         child: Container(
                           width: 70,
                           margin: const EdgeInsets.symmetric(horizontal: 4),
-                          padding: const EdgeInsets.all(
-                            2,
-                          ), // Padding ให้เห็นกรอบชัด
+                          padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            color: Colors.white, // ✅ พื้นหลังขาว
+                            color: Colors.white,
                             border: Border.all(
                               color: isSelected
                                   ? Colors.orange
@@ -188,7 +201,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                           ),
                           child: Image.network(
                             widget.imageUrls[index],
-                            fit: BoxFit.cover, // รูปเล็กเต็มช่อง
+                            fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) =>
                                 const Icon(Icons.error, size: 16),
                           ),
