@@ -1,6 +1,10 @@
+// lib/screens/market_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Imports
 import '../models/product_model.dart';
+import '../widgets/item_card.dart'; // ✅ แก้ไข import ให้ถูกต้องแล้ว
 import 'product_detail_screen.dart';
 
 class MarketScreen extends StatefulWidget {
@@ -25,7 +29,7 @@ class _MarketScreenState extends State<MarketScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // --- Filter Bar (Design เดิมแต่สะอาดขึ้น) ---
+        // --- Filter Bar ---
         Container(
           height: 50,
           color: Colors.white,
@@ -74,10 +78,12 @@ class _MarketScreenState extends State<MarketScreen> {
           child: StreamBuilder<QuerySnapshot>(
             stream: _getStream(),
             builder: (context, snapshot) {
-              if (snapshot.hasError)
+              if (snapshot.hasError) {
                 return const Center(child: Text('เกิดข้อผิดพลาด'));
-              if (snapshot.connectionState == ConnectionState.waiting)
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
+              }
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return Center(
@@ -108,8 +114,7 @@ class _MarketScreenState extends State<MarketScreen> {
                     padding: const EdgeInsets.all(12),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
-                      childAspectRatio:
-                          0.65, // ปรับสัดส่วนให้การ์ดสูงพอดีกับเนื้อหา (แนวตั้ง)
+                      childAspectRatio: 0.65, // สัดส่วนการ์ด
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
@@ -118,17 +123,18 @@ class _MarketScreenState extends State<MarketScreen> {
                       final product = Product.fromFirestore(
                         snapshot.data!.docs[index],
                       );
+
+                      // ดึงรูปแรกมาแสดง (ถ้ามี)
                       String thumb = product.imageUrls.isNotEmpty
                           ? product.imageUrls.first
                           : 'https://via.placeholder.com/300';
 
                       return ItemCard(
                         title: product.name,
-                        price:
-                            '฿${product.price.toStringAsFixed(0)}', // ใส่สกุลเงิน
+                        price: '฿${product.price.toStringAsFixed(0)}',
                         imageUrl: thumb,
-                        tagText: product.condition, // เช่น มือสอง
-                        footerText: product.authorName, // ชื่อคนขาย
+                        tagText: product.condition,
+                        footerText: product.authorName,
                         onTap: () {
                           Navigator.push(
                             context,
@@ -154,6 +160,7 @@ class _MarketScreenState extends State<MarketScreen> {
     var ref = FirebaseFirestore.instance
         .collection('market_items')
         .orderBy('created_at', descending: true);
+
     if (_selectedCategory != 'ทั้งหมด') {
       return ref.where('category', isEqualTo: _selectedCategory).snapshots();
     }
