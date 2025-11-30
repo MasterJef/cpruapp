@@ -50,7 +50,7 @@ class PostSelectionScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const PostJobForm(),
+                      builder: (context) => const PostJobScreen(),
                     ),
                   );
                 },
