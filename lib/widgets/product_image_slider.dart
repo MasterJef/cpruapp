@@ -18,7 +18,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
     if (widget.imageUrls.isEmpty) {
       return Container(
         height: 300,
-        color: Colors.grey[100], // Lighter grey for empty state
+        color: Colors.grey[100],
         child: const Center(
           child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
         ),
@@ -29,14 +29,12 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
       children: [
         // --- 1. รูปใหญ่ (Main Image) ---
         Container(
-          // Wrap with Container for styling
-          height: 350,
+          height: 400, // ✅ ปรับความสูงให้เต็มตา (400)
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white, // ✅ Set background to White
-            border: Border.all(
-              color: Colors.grey.shade200,
-            ), // ✅ Add a subtle border
+            color: Colors.white, // ✅ พื้นหลังขาว
+            border: Border.all(color: Colors.grey.shade200), // ✅ เส้นขอบบางๆ
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(
             children: [
@@ -50,11 +48,11 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                 itemBuilder: (context, index) {
                   return GestureDetector(
                     onTap: () {
-                      // Add fullscreen navigation logic here if needed
+                      // ใส่โค้ดเปิดดูรูปเต็มจอ (FullScreenImageView) ตรงนี้
                     },
                     child: Image.network(
                       widget.imageUrls[index],
-                      fit: BoxFit.contain, // Keep contain to see full image
+                      fit: BoxFit.contain, // ✅ รูปไม่โดนตัด
                       errorBuilder: (_, __, ___) => const Center(
                         child: Icon(Icons.error, color: Colors.grey),
                       ),
@@ -63,7 +61,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                 },
               ),
 
-              // Navigation Arrows (Left/Right)
+              // ปุ่มลูกศรซ้ายขวา (บนรูปใหญ่)
               if (widget.imageUrls.length > 1) ...[
                 Positioned(
                   left: 10,
@@ -71,8 +69,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                   bottom: 0,
                   child: Center(
                     child: CircleAvatar(
-                      backgroundColor:
-                          Colors.black12, // Lighter background for arrows
+                      backgroundColor: Colors.black12,
                       radius: 16,
                       child: IconButton(
                         padding: EdgeInsets.zero,
@@ -118,7 +115,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                 ),
               ],
 
-              // Image Counter Badge (bottom right)
+              // ตัวนับรูป
               Positioned(
                 bottom: 10,
                 right: 10,
@@ -128,7 +125,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black54,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -141,15 +138,15 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
           ),
         ),
 
-        const SizedBox(height: 10),
+        // ✅ เพิ่มระยะห่างให้สวยงาม
+        const SizedBox(height: 20),
 
         // --- 2. แถบรูปเล็ก (Thumbnail Strip) ---
         if (widget.imageUrls.length > 1)
           SizedBox(
-            height: 70, // Adjusted height
+            height: 80, // ความสูงแถบรูปเล็ก
             child: Row(
               children: [
-                // Left Arrow for Thumbnails
                 IconButton(
                   icon: const Icon(Icons.chevron_left, color: Colors.grey),
                   onPressed: () {
@@ -161,7 +158,6 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                   },
                 ),
 
-                // Thumbnails List
                 Expanded(
                   child: ListView.builder(
                     controller: _thumbController,
@@ -177,8 +173,11 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                         child: Container(
                           width: 70,
                           margin: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.all(
+                            2,
+                          ), // Padding ให้เห็นกรอบชัด
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.white, // ✅ พื้นหลังขาว
                             border: Border.all(
                               color: isSelected
                                   ? Colors.orange
@@ -187,15 +186,11 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                             ),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Padding(
-                            // Add padding inside border
-                            padding: const EdgeInsets.all(2.0),
-                            child: Image.network(
-                              widget.imageUrls[index],
-                              fit: BoxFit.cover, // Thumbnails should be cover
-                              errorBuilder: (_, __, ___) =>
-                                  const Icon(Icons.error, size: 16),
-                            ),
+                          child: Image.network(
+                            widget.imageUrls[index],
+                            fit: BoxFit.cover, // รูปเล็กเต็มช่อง
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.error, size: 16),
                           ),
                         ),
                       );
@@ -203,7 +198,6 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                   ),
                 ),
 
-                // Right Arrow for Thumbnails
                 IconButton(
                   icon: const Icon(Icons.chevron_right, color: Colors.grey),
                   onPressed: () {
