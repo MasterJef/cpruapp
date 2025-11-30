@@ -5,7 +5,6 @@ class ItemCard extends StatelessWidget {
   final String price;
   final String imageUrl;
   final VoidCallback onTap;
-
   final String location;
   final String authorName;
   final String authorAvatar;
@@ -37,7 +36,6 @@ class ItemCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- 1. รูปภาพ ---
             AspectRatio(
               aspectRatio: 1,
               child: Stack(
@@ -46,15 +44,10 @@ class ItemCard extends StatelessWidget {
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey,
-                          ),
-                        );
-                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.image_not_supported),
+                      ),
                     ),
                   ),
                   if (tagText != null && tagText!.isNotEmpty)
@@ -83,8 +76,6 @@ class ItemCard extends StatelessWidget {
                 ],
               ),
             ),
-
-            // --- 2. ข้อมูล ---
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -101,7 +92,6 @@ class ItemCard extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -114,44 +104,38 @@ class ItemCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-
-                        // ส่วนผู้โพสต์ / Location
-                        Row(
-                          children: [
-                            if (authorAvatar.isNotEmpty) ...[
-                              CircleAvatar(
-                                radius: 10, // ✅ เพิ่มขนาดรูป
-                                backgroundImage: NetworkImage(authorAvatar),
-                                onBackgroundImageError: (_, __) {},
-                              ),
-                              const SizedBox(width: 6),
-                            ] else if (location.isNotEmpty) ...[
+                        if (footerText != null && footerText!.isNotEmpty)
+                          Text(
+                            footerText!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        else if (location.isNotEmpty)
+                          Row(
+                            children: [
                               const Icon(
                                 Icons.location_on,
-                                size: 14,
+                                size: 10,
                                 color: Colors.grey,
                               ),
-                              const SizedBox(width: 4),
-                            ],
-
-                            Expanded(
-                              child: Text(
-                                // ถ้ามี footerText (เช่น ชื่อคนขาย) ให้โชว์ก่อน ถ้าไม่มีให้โชว์ location
-                                (footerText != null && footerText!.isNotEmpty)
-                                    ? footerText!
-                                    : (location.isNotEmpty
-                                          ? location
-                                          : authorName),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
-                                ), // ✅ เพิ่มขนาดตัวหนังสือ
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              const SizedBox(width: 2),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                       ],
                     ),
                   ],

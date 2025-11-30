@@ -7,13 +7,12 @@ class ResponsiveContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // เช็คว่าเป็น Web หรือจอกว้างไหม
     final isWideScreen = kIsWeb || MediaQuery.of(context).size.width > 800;
 
     if (isWideScreen) {
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900), // จำกัดความกว้าง
+          constraints: const BoxConstraints(maxWidth: 900),
           child: Container(
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
@@ -30,8 +29,6 @@ class ResponsiveContainer extends StatelessWidget {
         ),
       );
     }
-
-    // ถ้าจอมือถือ แสดงเต็มจอปกติ
     return child;
   }
 }
