@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // เผื่อใช้ลบ
 import '../models/product_model.dart';
 import '../widgets/full_screen_image.dart';
 import 'post_product_screen.dart';
+// import 'chat_room_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -40,7 +41,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .collection('market_items')
           .doc(widget.product.id)
           .delete();
-      if (context.mounted) {
+      if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
@@ -59,23 +60,48 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         bool isDesktop = constraints.maxWidth > 900;
 
         return Scaffold(
+          extendBodyBehindAppBar: !isDesktop,
           appBar: AppBar(
-            title: const Text('รายละเอียดสินค้า'),
+            backgroundColor: isDesktop ? Colors.white : Colors.transparent,
+            elevation: 0,
+            iconTheme: IconThemeData(
+              color: isDesktop ? Colors.black : Colors.white,
+            ),
+            title: isDesktop
+                ? const Text(
+                    'รายละเอียดสินค้า',
+                    style: TextStyle(color: Colors.black),
+                  )
+                : null,
             actions: [
               if (isOwner) ...[
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          PostProductScreen(product: widget.product),
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            PostProductScreen(product: widget.product),
+                      ),
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _deleteProduct(context),
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.redAccent),
+                    onPressed: () => _deleteProduct(context),
+                  ),
                 ),
               ],
             ],
@@ -86,35 +112,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
           bottomNavigationBar: isDesktop
               ? null
-              : _buildBottomAction(context, isOwner, isMobile: true),
+              : _buildBottomActionBar(context, isOwner),
         );
       },
     );
   }
 
-  // --- Layouts ---
-
   Widget _buildDesktopLayout(BuildContext context, bool isOwner) {
     return Row(
       children: [
         Expanded(
-          flex: 5,
+          flex: 1,
           child: Container(
             color: Colors.black,
             child: _buildImageGallery(isDesktop: true),
           ),
         ),
         Expanded(
-          flex: 5,
+          flex: 1,
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(32),
-                  child: _buildProductInfo(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 30,
+                  ),
+                  child: _buildContent(context),
                 ),
               ),
-              _buildBottomAction(context, isOwner, isMobile: false),
+              _buildBottomActionBar(context, isOwner, isDesktop: true),
             ],
           ),
         ),
@@ -125,210 +152,275 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildMobileLayout(BuildContext context, bool isOwner) {
     return SingleChildScrollView(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildImageGallery(isDesktop: false),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: _buildProductInfo(),
+          Container(
+            transform: Matrix4.translationValues(0.0, -20.0, 0.0),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: _buildContent(context),
           ),
         ],
       ),
     );
   }
 
-  // --- Components ---
-
   Widget _buildImageGallery({required bool isDesktop}) {
-    final double? height = isDesktop ? double.infinity : 350;
+    final double height = isDesktop
+        ? double.infinity
+        : MediaQuery.of(context).size.height * 0.45;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => FullScreenImageView(
-              imageUrls: widget.product.imageUrls,
-              initialIndex: _currentImageIndex,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        height: height,
-        color: Colors
-            .white, // สินค้าพื้นหลังขาวอาจจะสวยกว่า แต่ถ้าอยากได้ดำก็เปลี่ยนได้
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            PageView.builder(
-              itemCount: widget.product.imageUrls.length,
-              onPageChanged: (index) =>
-                  setState(() => _currentImageIndex = index),
-              itemBuilder: (context, index) {
-                return Image.network(
+    return Stack(
+      children: [
+        SizedBox(
+          height: height,
+          width: double.infinity,
+          child: PageView.builder(
+            itemCount: widget.product.imageUrls.length,
+            onPageChanged: (index) =>
+                setState(() => _currentImageIndex = index),
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FullScreenImageView(
+                        imageUrls: widget.product.imageUrls,
+                        initialIndex: index,
+                      ),
+                    ),
+                  );
+                },
+                child: Image.network(
                   widget.product.imageUrls[index],
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Center(
-                    child: Icon(
+                  fit: isDesktop ? BoxFit.contain : BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey[900],
+                    child: const Icon(
                       Icons.broken_image,
-                      size: 50,
-                      color: Colors.grey,
+                      color: Colors.white54,
                     ),
                   ),
-                );
-              },
-            ),
-            if (widget.product.imageUrls.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(widget.product.imageUrls.length, (
-                    index,
-                  ) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _currentImageIndex == index
-                            ? const Color(0xFFE64A19)
-                            : Colors.grey[300],
-                      ),
-                    );
-                  }),
                 ),
-              ),
-          ],
+              );
+            },
+          ),
         ),
-      ),
+        Positioned(
+          top: isDesktop ? 20 : MediaQuery.of(context).padding.top + 10,
+          right: 20,
+          child: IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FullScreenImageView(
+                    imageUrls: widget.product.imageUrls,
+                    initialIndex: _currentImageIndex,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.fullscreen, color: Colors.white, size: 30),
+            style: IconButton.styleFrom(backgroundColor: Colors.black45),
+          ),
+        ),
+        if (widget.product.imageUrls.length > 1)
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.product.imageUrls.length, (index) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index
+                        ? const Color(0xFFE64A19)
+                        : Colors.white54,
+                  ),
+                );
+              }),
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildProductInfo() {
+  Widget _buildContent(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Author
-        Row(
-          children: [
-            CircleAvatar(
-              backgroundImage: NetworkImage(widget.product.authorAvatar),
-              radius: 24,
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.product.authorName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const Text(
-                  'ผู้ขาย',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const Divider(height: 40),
-
-        // Price & Title
-        Text(
-          '${widget.product.price.toStringAsFixed(0)} บาท',
-          style: const TextStyle(
-            color: Color(0xFFE64A19),
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.product.name,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-
-        // Tags
         Wrap(
           spacing: 8,
           children: [
             Chip(
               label: Text(widget.product.condition),
-              backgroundColor: Colors.grey[200],
+              backgroundColor: Colors.grey[100],
             ),
             Chip(
               label: Text(widget.product.category),
-              backgroundColor: Colors.grey[200],
+              backgroundColor: Colors.grey[100],
             ),
           ],
         ),
-        const SizedBox(height: 24),
-
-        // Description
+        const SizedBox(height: 12),
+        Text(
+          widget.product.name,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${widget.product.price.toStringAsFixed(0)} บาท',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFFE64A19),
+          ),
+        ),
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundImage: NetworkImage(widget.product.authorAvatar),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.product.authorName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Text(
+                      'ผู้ขาย',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: () {},
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                child: const Text(
+                  'ดูร้านค้า',
+                  style: TextStyle(color: Colors.black87),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
         const Text(
           'รายละเอียดสินค้า',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Text(
           widget.product.description,
-          style: const TextStyle(fontSize: 16, height: 1.5),
+          style: const TextStyle(
+            fontSize: 16,
+            height: 1.6,
+            color: Colors.black87,
+          ),
         ),
+        const SizedBox(height: 100),
       ],
     );
   }
 
-  Widget _buildBottomAction(
+  Widget _buildBottomActionBar(
     BuildContext context,
     bool isOwner, {
-    required bool isMobile,
+    bool isDesktop = false,
   }) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: isDesktop ? 24 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: isMobile
-            ? [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 5,
-                  offset: const Offset(0, -2),
-                ),
-              ]
-            : null,
-        border: !isMobile
-            ? Border(top: BorderSide(color: Colors.grey.shade200))
-            : null,
-      ),
-      child: FilledButton.icon(
-        onPressed: isOwner
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: isDesktop
             ? null
-            : () {
-                // Logic เปิดหน้าแชท (ถ้ามี Chat Screen)
-                // Navigator.push(context, MaterialPageRoute(builder: (_) => ChatRoomScreen(...)));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('ฟีเจอร์ Chat กำลังเชื่อมต่อ...'),
-                  ),
-                );
-              },
-        icon: const Icon(Icons.chat_bubble_outline),
-        label: Text(isOwner ? 'สินค้าของคุณเอง' : 'ทักแชท / สนใจสินค้า'),
-        style: FilledButton.styleFrom(
-          backgroundColor: isOwner ? Colors.grey : const Color(0xFFE64A19),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 1,
+            child: OutlinedButton.icon(
+              onPressed: isOwner ? null : () {},
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('ทักแชท'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: Color(0xFFE64A19)),
+                foregroundColor: const Color(0xFFE64A19),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: FilledButton(
+              onPressed: isOwner ? null : () {},
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFE64A19),
+                disabledBackgroundColor: Colors.grey.shade300,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                isOwner ? 'สินค้าของคุณ' : 'ซื้อทันที',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
