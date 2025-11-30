@@ -1,72 +1,132 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // สำหรับ kIsWeb
 
 class ImageService {
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
 
-  // เลือกรูปเดียว
+  // ------------------------------------------
+  // ส่วนที่ 1: สำหรับรูปเดียว (Single Image) - ใช้กับ Profile / Job
+  // ------------------------------------------
+
+  // 1.1 เลือกรูปเดียว
   Future<XFile?> pickImage() async {
     try {
-      return await _picker.pickImage(
+      final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 800, // ปรับตาม Request: กว้างสูงสุด 800px
-        imageQuality: 70, // ปรับตาม Request: คุณภาพ 70%
+        imageQuality: 80,
+        maxWidth: 800,
       );
+      if (pickedFile != null) {
+        return await _cropImage(pickedFile);
+      }
+      return null;
     } catch (e) {
-      debugPrint('Error picking image: $e');
+      print('Pick Image Error: $e');
       return null;
     }
   }
 
-  // เลือกหลายรูป
+  // 1.2 อัปโหลดรูปเดียว
+  Future<String?> uploadImage(XFile image, String folderName) async {
+    try {
+      String fileName =
+          '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+      Reference ref = _storage.ref().child('$folderName/$fileName');
+
+      if (kIsWeb) {
+        var bytes = await image.readAsBytes();
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      } else {
+        File file = File(image.path);
+        await ref.putFile(file);
+      }
+
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Upload Single Error: $e');
+      return null;
+    }
+  }
+
+  // ------------------------------------------
+  // ส่วนที่ 2: สำหรับหลายรูป (Multiple Images) - ใช้กับ Product
+  // ------------------------------------------
+
+  // 2.1 เลือกหลายรูป (Multi Pick)
   Future<List<XFile>> pickMultiImages() async {
     try {
-      return await _picker.pickMultiImage(maxWidth: 800, imageQuality: 70);
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 800,
+      );
+      // หมายเหตุ: pickMultiImage ปกติจะไม่รองรับ Crop ทีละรูป (มันจะยุ่งยาก)
+      // ดังนั้นเราจะส่งรูปดิบไปเลย หรือถ้าอยาก Crop ต้องวนลูปเรียก _cropImage
+      return pickedFiles;
     } catch (e) {
-      debugPrint('Error picking multi images: $e');
+      print('Pick Multi Error: $e');
       return [];
     }
   }
 
-  // อัปโหลดรูปเดียว
-  Future<String?> uploadImage(XFile image, String folderPath) async {
-    try {
-      String fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-      Reference ref = FirebaseStorage.instance.ref().child(
-        '$folderPath/$fileName',
-      );
-
-      UploadTask task;
-      if (kIsWeb) {
-        task = ref.putData(
-          await image.readAsBytes(),
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
-      } else {
-        task = ref.putFile(File(image.path));
-      }
-
-      TaskSnapshot snapshot = await task;
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Upload Error: $e');
-      return null;
-    }
-  }
-
-  // อัปโหลดหลายรูป
+  // 2.2 อัปโหลดหลายรูป (Multi Upload)
   Future<List<String>> uploadMultipleImages(
     List<XFile> images,
-    String folderPath,
+    String folderName,
   ) async {
     List<String> urls = [];
-    for (var image in images) {
-      String? url = await uploadImage(image, folderPath);
-      if (url != null) urls.add(url);
+    try {
+      for (var image in images) {
+        String? url = await uploadImage(
+          image,
+          folderName,
+        ); // เรียกใช้ฟังก์ชันเดี่ยวซ้ำๆ
+        if (url != null) {
+          urls.add(url);
+        }
+      }
+    } catch (e) {
+      print('Upload Multi Error: $e');
     }
     return urls;
+  }
+
+  // ------------------------------------------
+  // Helper: Crop Image (ใช้ร่วมกัน)
+  // ------------------------------------------
+  Future<XFile?> _cropImage(XFile imageFile) async {
+    try {
+      if (kIsWeb) return imageFile; // เว็บไม่ Crop
+
+      CroppedFile? croppedFile = await ImageCropper().cropImage(
+        sourcePath: imageFile.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'จัดตำแหน่งรูปภาพ',
+            toolbarColor: Colors.deepOrange,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+          ),
+          IOSUiSettings(
+            title: 'จัดตำแหน่งรูปภาพ',
+            aspectRatioLockEnabled: true,
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        return XFile(croppedFile.path);
+      }
+      return null;
+    } catch (e) {
+      print('Crop Error: $e');
+      return imageFile;
+    }
   }
 }

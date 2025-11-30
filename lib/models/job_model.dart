@@ -4,12 +4,13 @@ class Job {
   final String id;
   final String title;
   final String description;
-  final String price; // เก็บเป็นตัวเลขหรือข้อความตัวเลข เช่น "500"
+  final String price;
   final String location;
-  final List<String> imageUrls; // เปลี่ยนเป็น List
+  final List<String> imageUrls;
+  final String category; // ✅ เพิ่มตัวนี้ (สำคัญมากสำหรับ Filter)
   final String createdBy;
-  final String authorName; // เพิ่มชื่อคนโพสต์
-  final String authorAvatar; // เพิ่มรูปคนโพสต์
+  final String authorName;
+  final String authorAvatar;
   final String status;
   final String? acceptedBy;
   final DateTime? createdAt;
@@ -21,6 +22,7 @@ class Job {
     required this.price,
     required this.location,
     required this.imageUrls,
+    required this.category, // ✅
     required this.createdBy,
     required this.authorName,
     required this.authorAvatar,
@@ -32,14 +34,15 @@ class Job {
   factory Job.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
 
-    // Logic จัดการรูปภาพ (รองรับทั้งข้อมูลเก่าและใหม่)
+    // Logic จัดการรูปภาพ (ของคุณเดิม ดีอยู่แล้วครับ)
     List<String> images = [];
     if (data['imageUrls'] != null) {
       images = List<String>.from(data['imageUrls']);
     } else if (data['imageUrl'] != null) {
-      // รองรับข้อมูลเก่าที่มีรูปเดียว
       images.add(data['imageUrl']);
     }
+
+    // ถ้าไม่มีรูปเลย ให้ใส่ Placeholder
     if (images.isEmpty) {
       images.add('https://via.placeholder.com/300x200.png?text=No+Image');
     }
@@ -48,10 +51,12 @@ class Job {
       id: doc.id,
       title: data['title'] ?? 'ไม่ระบุชื่อ',
       description: data['description'] ?? '',
-      price:
-          '${data['price'] ?? 0}', // ดึงมาแค่ตัวเลข/ข้อความ ไม่เติม "บาท" ที่นี่
+      price: '${data['price'] ?? 0}',
       location: data['location'] ?? 'ไม่ระบุ',
       imageUrls: images,
+      category:
+          data['category'] ??
+          'ทั่วไป', // ✅ ดึงหมวดหมู่ (ถ้าไม่มีให้เป็น 'ทั่วไป')
       createdBy: data['createdBy'] ?? '',
       authorName: data['authorName'] ?? 'ไม่ระบุตัวตน',
       authorAvatar:

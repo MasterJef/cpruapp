@@ -382,114 +382,111 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, // 2 คอลัมน์
+            childAspectRatio: 0.75, // สัดส่วนการ์ด (สูงกว่ากว้าง)
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
           itemCount: snapshot.data!.docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
-            Job job = Job.fromFirestore(snapshot.data!.docs[index]);
+            final doc = snapshot.data!.docs[index];
+            Job job = Job.fromFirestore(doc);
             String thumb = job.imageUrls.isNotEmpty
                 ? job.imageUrls.first
                 : 'https://via.placeholder.com/150';
 
+            // ใช้ ItemCard (แบบเดียวกับ Market) เพื่อความสวยงามและ Code Clean
+            // แต่ถ้ายังไม่มี ItemCard ให้ใช้ Card แบบเดิมแต่จัด Layout ใหม่
             return Card(
               clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: InkWell(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
                 ),
-                child: Row(
+                child: Column(
+                  // เปลี่ยนจาก Row เป็น Column
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: Image.network(
-                        thumb,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.broken_image,
-                            color: Colors.grey,
+                    // 1. รูปภาพ (ด้านบน)
+                    Expanded(
+                      child: Container(
+                        color: Colors.black, // พื้นหลังดำให้ดูดี
+                        width: double.infinity,
+                        child: Image.network(
+                          thumb,
+                          fit: BoxFit.contain, // เห็นรูปครบ
+                          errorBuilder: (_, __, ___) => Container(
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.broken_image),
                           ),
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              job.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+
+                    // 2. ข้อมูล (ด้านล่าง)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            job.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 12,
+                                color: Colors.grey,
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.location_on,
-                                  size: 14,
-                                  color: Colors.grey,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    job.location,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '${job.price} ฿',
+                              const SizedBox(width: 2),
+                              Expanded(
+                                child: Text(
+                                  job.location,
                                   style: TextStyle(
-                                    color: Theme.of(context).primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontSize: 10,
+                                    color: Colors.grey.shade600,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundImage: NetworkImage(
-                                        job.authorAvatar,
-                                      ),
-                                      radius: 8,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    SizedBox(
-                                      width: 60,
-                                      child: Text(
-                                        job.authorName,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${job.price} ฿',
+                                style: TextStyle(
+                                  color: Theme.of(context).primaryColor,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
+                              ),
+                              // รูปคนโพสต์เล็กๆ
+                              CircleAvatar(
+                                radius: 8,
+                                backgroundImage: NetworkImage(
+                                  job.authorAvatar.isNotEmpty
+                                      ? job.authorAvatar
+                                      : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
