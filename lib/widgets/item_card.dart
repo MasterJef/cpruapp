@@ -5,6 +5,7 @@ class ItemCard extends StatelessWidget {
   final String price;
   final String imageUrl;
   final VoidCallback onTap;
+
   final String location;
   final String authorName;
   final String authorAvatar;
@@ -36,6 +37,7 @@ class ItemCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- 1. รูปภาพ (Square 1:1) ---
             AspectRatio(
               aspectRatio: 1,
               child: Stack(
@@ -44,10 +46,15 @@ class ItemCard extends StatelessWidget {
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.image_not_supported),
-                      ),
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
                     ),
                   ),
                   if (tagText != null && tagText!.isNotEmpty)
@@ -76,50 +83,39 @@ class ItemCard extends StatelessWidget {
                 ],
               ),
             ),
+
+            // --- 2. ข้อมูล ---
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween, // กระจายเนื้อหา
                   children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    // ส่วนบน: ชื่อ + สถานที่ + ราคา
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ชื่อสินค้า/งาน
                         Text(
-                          price.contains('฿') ? price : '฿$price',
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepOrange,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        if (footerText != null && footerText!.isNotEmpty)
-                          Text(
-                            footerText!,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          )
-                        else if (location.isNotEmpty)
+
+                        // สถานที่ (ถ้ามี)
+                        if (location.isNotEmpty) ...[
+                          const SizedBox(height: 2),
                           Row(
                             children: [
                               const Icon(
                                 Icons.location_on,
-                                size: 10,
+                                size: 12,
                                 color: Colors.grey,
                               ),
                               const SizedBox(width: 2),
@@ -127,7 +123,7 @@ class ItemCard extends StatelessWidget {
                                 child: Text(
                                   location,
                                   style: const TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     color: Colors.grey,
                                   ),
                                   maxLines: 1,
@@ -136,7 +132,56 @@ class ItemCard extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ],
+
+                        const SizedBox(height: 4),
+                        // ราคา
+                        Text(
+                          price.contains('฿') ? price : '฿$price',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepOrange,
+                          ),
+                        ),
                       ],
+                    ),
+
+                    // ส่วนล่าง: ข้อมูลผู้โพสต์
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(top: BorderSide(color: Colors.black12)),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 10, // ขนาดรูปโปรไฟล์
+                            backgroundImage: NetworkImage(
+                              authorAvatar.isNotEmpty
+                                  ? authorAvatar
+                                  : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                            ),
+                            onBackgroundImageError: (_, __) {},
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              authorName.isNotEmpty
+                                  ? authorName
+                                  : 'ไม่ระบุตัวตน',
+                              style: const TextStyle(
+                                fontSize: 11, // ขนาดตัวหนังสือชื่อคน
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
