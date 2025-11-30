@@ -25,64 +25,91 @@ class _MarketScreenState extends State<MarketScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Filter Bar
+        // --- Filter Bar (Design เดิมแต่สะอาดขึ้น) ---
         Container(
-          height: 60,
+          height: 50,
           color: Colors.white,
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             scrollDirection: Axis.horizontal,
             itemCount: _categories.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final category = _categories[index];
-              final isSelected = _selectedCategory == category;
-              return ChoiceChip(
-                label: Text(category),
-                selected: isSelected,
-                selectedColor: Colors.orange.shade100,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.orange.shade900 : Colors.black,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              final cat = _categories[index];
+              final isSel = _selectedCategory == cat;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedCategory = cat),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSel
+                        ? const Color(0xFFE64A19).withOpacity(0.1)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: isSel
+                        ? Border.all(color: const Color(0xFFE64A19))
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      cat,
+                      style: TextStyle(
+                        color: isSel ? const Color(0xFFE64A19) : Colors.black87,
+                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                 ),
-                onSelected: (bool selected) {
-                  if (selected) setState(() => _selectedCategory = category);
-                },
               );
             },
           ),
         ),
 
-        // Responsive Product Grid
+        // --- Product Grid ---
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
             stream: _getStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError)
-                return const Center(child: Text('โหลดข้อมูลไม่สำเร็จ'));
+                return const Center(child: Text('เกิดข้อผิดพลาด'));
               if (snapshot.connectionState == ConnectionState.waiting)
                 return const Center(child: CircularProgressIndicator());
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'ยังไม่มีสินค้าในหมวดนี้',
-                    style: TextStyle(color: Colors.grey),
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.storefront, size: 60, color: Colors.grey[300]),
+                      const SizedBox(height: 10),
+                      Text(
+                        'ไม่พบสินค้าในหมวดหมู่นี้',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
                 );
               }
 
-              // ใช้ LayoutBuilder เช็คขนาดหน้าจอ
+              // Responsive Layout Builder
               return LayoutBuilder(
                 builder: (context, constraints) {
-                  // ถ้าจอใหญ่กว่า 600px ให้โชว์ 4 คอลัมน์, ถ้ามือถือโชว์ 2
-                  int crossAxisCount = constraints.maxWidth > 600 ? 4 : 2;
+                  // คำนวณจำนวนคอลัมน์: จอเล็ก 2, จอกลาง 3-4, จอใหญ่ 5-6
+                  int crossAxisCount = 2;
+                  if (constraints.maxWidth > 600) crossAxisCount = 3;
+                  if (constraints.maxWidth > 900) crossAxisCount = 4;
+                  if (constraints.maxWidth > 1200) crossAxisCount = 5;
 
                   return GridView.builder(
                     padding: const EdgeInsets.all(12),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
-                      childAspectRatio: 0.75, // สัดส่วนการ์ด
+                      childAspectRatio:
+                          0.65, // ปรับสัดส่วนให้การ์ดสูงพอดีกับเนื้อหา (แนวตั้ง)
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
@@ -95,93 +122,22 @@ class _MarketScreenState extends State<MarketScreen> {
                           ? product.imageUrls.first
                           : 'https://via.placeholder.com/300';
 
-                      return GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ProductDetailScreen(product: product),
-                          ),
-                        ),
-                        child: Card(
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      color: Colors
-                                          .black, // ✅ ใส่พื้นหลังดำ/เทาเข้ม
-                                      width: double.infinity,
-                                      child: Image.network(
-                                        thumb,
-                                        fit: BoxFit
-                                            .contain, // ✅ เปลี่ยนจาก cover เป็น contain (เห็นครบไม่โดนตัด)
-                                        errorBuilder: (ctx, err, stack) =>
-                                            Container(
-                                              color: Colors.white,
-                                              child: const Icon(Icons.image),
-                                            ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 5,
-                                      right: 5,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          product.condition,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${product.price.toStringAsFixed(0)} บ.',
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      return ItemCard(
+                        title: product.name,
+                        price:
+                            '฿${product.price.toStringAsFixed(0)}', // ใส่สกุลเงิน
+                        imageUrl: thumb,
+                        tagText: product.condition, // เช่น มือสอง
+                        footerText: product.authorName, // ชื่อคนขาย
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailScreen(product: product),
+                            ),
+                          );
+                        },
                       );
                     },
                   );
@@ -195,12 +151,12 @@ class _MarketScreenState extends State<MarketScreen> {
   }
 
   Stream<QuerySnapshot> _getStream() {
-    Query query = FirebaseFirestore.instance
+    var ref = FirebaseFirestore.instance
         .collection('market_items')
         .orderBy('created_at', descending: true);
     if (_selectedCategory != 'ทั้งหมด') {
-      query = query.where('category', isEqualTo: _selectedCategory);
+      return ref.where('category', isEqualTo: _selectedCategory).snapshots();
     }
-    return query.snapshots();
+    return ref.snapshots();
   }
 }

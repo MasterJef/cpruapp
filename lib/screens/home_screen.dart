@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 // Imports Models
 import '../models/job_model.dart';
-import '../models/user_model.dart';
+import '../models/user_model.dart'; // สำหรับ currentUser
 
 // Imports Widgets
 import '../widgets/responsive_layout.dart';
