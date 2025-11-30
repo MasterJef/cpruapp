@@ -148,7 +148,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
         data['status'] = 'open';
         data['createdBy'] = user.uid;
-        data['createdAt'] = FieldValue.serverTimestamp();
+        data['created_at'] = FieldValue.serverTimestamp();
         data['authorName'] = userData['firstName'] ?? 'Unknown';
         data['authorAvatar'] = userData['imageUrl'] ?? '';
 
