@@ -1,3 +1,5 @@
+import 'package:cprujobapp/widgets/item_card.dart';
+import 'package:cprujobapp/widgets/responsive_layout.dart';
 import 'package:flutter/foundation.dart'; // สำหรับ kIsWeb
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,7 +10,7 @@ import '../models/job_model.dart';
 import '../models/user_model.dart'; // สำหรับ currentUser
 
 // Imports Widgets
-import '../widgets/responsive_layout.dart';
+
 import '../widgets/web_chat_overlay.dart';
 
 // Imports Screens
@@ -355,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRealJobList(BuildContext context) {
     Query query = FirebaseFirestore.instance
         .collection('jobs')
-        .where('status', isEqualTo: 'open');
+        .where('status', isEqualTo: 'open'); // กรองงานว่าง
 
     if (_selectedJobCategory != 'ทั้งหมด') {
       query = query.where('category', isEqualTo: _selectedJobCategory);
@@ -364,134 +366,53 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: query.orderBy('created_at', descending: true).snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError)
+          return Center(child: Text('Error: ${snapshot.error}'));
         if (!snapshot.hasData)
           return const Center(child: CircularProgressIndicator());
-        if (snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off, size: 60, color: Colors.grey.shade300),
-                const SizedBox(height: 10),
-                Text(
-                  'ไม่พบงานในหมวดหมู่นี้',
-                  style: TextStyle(color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          );
-        }
+        if (snapshot.data!.docs.isEmpty)
+          return const Center(child: Text('ไม่พบงานในหมวดหมู่นี้'));
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, // 2 คอลัมน์
-            childAspectRatio: 0.75, // สัดส่วนการ์ด (สูงกว่ากว้าง)
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            Job job = Job.fromFirestore(doc);
-            String thumb = job.imageUrls.isNotEmpty
-                ? job.imageUrls.first
-                : 'https://via.placeholder.com/150';
+        // ✅ ใช้ LayoutBuilder เพื่อปรับ Responsive
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            int crossAxisCount = 2; // มือถือ 2 คอลัมน์
+            if (constraints.maxWidth > 600) crossAxisCount = 3;
+            if (constraints.maxWidth > 900) crossAxisCount = 4;
 
-            // ใช้ ItemCard (แบบเดียวกับ Market) เพื่อความสวยงามและ Code Clean
-            // แต่ถ้ายังไม่มี ItemCard ให้ใช้ Card แบบเดิมแต่จัด Layout ใหม่
-            return Card(
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            return GridView.builder(
+              padding: const EdgeInsets.all(12),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: 0.75, // สัดส่วนการ์ด
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
               ),
-              child: InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => JobDetailScreen(job: job)),
-                ),
-                child: Column(
-                  // เปลี่ยนจาก Row เป็น Column
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 1. รูปภาพ (ด้านบน)
-                    Expanded(
-                      child: Container(
-                        color: Colors.black, // พื้นหลังดำให้ดูดี
-                        width: double.infinity,
-                        child: Image.network(
-                          thumb,
-                          fit: BoxFit.contain, // เห็นรูปครบ
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.broken_image),
-                          ),
-                        ),
-                      ),
-                    ),
+              itemCount: snapshot.data!.docs.length,
+              itemBuilder: (context, index) {
+                final doc = snapshot.data!.docs[index];
+                Job job = Job.fromFirestore(doc);
 
-                    // 2. ข้อมูล (ด้านล่าง)
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            job.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.location_on,
-                                size: 12,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(width: 2),
-                              Expanded(
-                                child: Text(
-                                  job.location,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${job.price} ฿',
-                                style: TextStyle(
-                                  color: Theme.of(context).primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              // รูปคนโพสต์เล็กๆ
-                              CircleAvatar(
-                                radius: 8,
-                                backgroundImage: NetworkImage(
-                                  job.authorAvatar.isNotEmpty
-                                      ? job.authorAvatar
-                                      : 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                // เช็ครูป (List -> String)
+                String thumb = 'https://via.placeholder.com/150';
+                if (job.imageUrls.isNotEmpty) thumb = job.imageUrls.first;
+
+                // ✅ ใช้ ItemCard เหมือนหน้าตลาดนัดเป๊ะๆ
+                return ItemCard(
+                  title: job.title,
+                  price: job.price, // ไม่ต้องเติม 'บาท' เพราะ ItemCard เติมให้
+                  location: job.location, // ส่ง location ไป
+                  imageUrl: thumb,
+                  authorName: job.authorName,
+                  authorAvatar: job.authorAvatar,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => JobDetailScreen(job: job),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );

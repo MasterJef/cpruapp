@@ -6,12 +6,11 @@ class ItemCard extends StatelessWidget {
   final String imageUrl;
   final VoidCallback onTap;
 
-  // ✅ เพิ่มตัวแปรพวกนี้เพื่อให้รับค่าได้ (ตั้งเป็น optional มีค่า default)
   final String location;
   final String authorName;
   final String authorAvatar;
-  final String? tagText; // สำหรับสภาพสินค้า (มือสอง)
-  final String? footerText; // สำหรับข้อความด้านล่างสุด (ถ้ามี)
+  final String? tagText;
+  final String? footerText;
 
   const ItemCard({
     super.key,
@@ -19,9 +18,9 @@ class ItemCard extends StatelessWidget {
     required this.price,
     required this.imageUrl,
     required this.onTap,
-    this.location = '', // ✅ ค่าเริ่มต้นเป็นว่าง
-    this.authorName = '', // ✅ ค่าเริ่มต้นเป็นว่าง
-    this.authorAvatar = '', // ✅ ค่าเริ่มต้นเป็นว่าง
+    this.location = '',
+    this.authorName = '',
+    this.authorAvatar = '',
     this.tagText,
     this.footerText,
   });
@@ -40,7 +39,7 @@ class ItemCard extends StatelessWidget {
           children: [
             // --- 1. รูปภาพ ---
             AspectRatio(
-              aspectRatio: 1, // สี่เหลี่ยมจัตุรัส
+              aspectRatio: 1,
               child: Stack(
                 children: [
                   Positioned.fill(
@@ -58,7 +57,6 @@ class ItemCard extends StatelessWidget {
                       },
                     ),
                   ),
-                  // Tag มุมขวาบน (เช่น "มือสอง")
                   if (tagText != null && tagText!.isNotEmpty)
                     Positioned(
                       top: 4,
@@ -94,7 +92,6 @@ class ItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // ชื่อ
                     Text(
                       title,
                       maxLines: 2,
@@ -105,14 +102,11 @@ class ItemCard extends StatelessWidget {
                       ),
                     ),
 
-                    // ราคา + รายละเอียด
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          price.contains('฿')
-                              ? price
-                              : '฿$price', // เช็คว่ามี ฿ หรือยัง
+                          price.contains('฿') ? price : '฿$price',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -121,39 +115,43 @@ class ItemCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
 
-                        // แสดง Location (งาน) หรือ FooterText (สินค้า)
-                        if (footerText != null && footerText!.isNotEmpty)
-                          Text(
-                            footerText!,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          )
-                        else if (location.isNotEmpty)
-                          Row(
-                            children: [
+                        // ส่วนผู้โพสต์ / Location
+                        Row(
+                          children: [
+                            if (authorAvatar.isNotEmpty) ...[
+                              CircleAvatar(
+                                radius: 10, // ✅ เพิ่มขนาดรูป
+                                backgroundImage: NetworkImage(authorAvatar),
+                                onBackgroundImageError: (_, __) {},
+                              ),
+                              const SizedBox(width: 6),
+                            ] else if (location.isNotEmpty) ...[
                               const Icon(
                                 Icons.location_on,
-                                size: 10,
+                                size: 14,
                                 color: Colors.grey,
                               ),
-                              const SizedBox(width: 2),
-                              Expanded(
-                                child: Text(
-                                  location,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                              const SizedBox(width: 4),
                             ],
-                          ),
+
+                            Expanded(
+                              child: Text(
+                                // ถ้ามี footerText (เช่น ชื่อคนขาย) ให้โชว์ก่อน ถ้าไม่มีให้โชว์ location
+                                (footerText != null && footerText!.isNotEmpty)
+                                    ? footerText!
+                                    : (location.isNotEmpty
+                                          ? location
+                                          : authorName),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black87,
+                                ), // ✅ เพิ่มขนาดตัวหนังสือ
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ],

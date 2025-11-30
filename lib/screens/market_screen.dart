@@ -111,16 +111,16 @@ class _MarketScreenState extends State<MarketScreen> {
 
                       return ItemCard(
                         title: product.name,
-                        price: product.price.toStringAsFixed(
-                          0,
-                        ), // ราคาไม่ต้องมีหน่วย ItemCard ใส่ให้แล้ว
-                        location: '', // สินค้าไม่มี location ส่งค่าว่างไป
+                        price: product.price.toStringAsFixed(0),
                         imageUrl: thumb,
+
+                        // ✅ ส่งชื่อคนขายไปที่ footerText หรือ authorName
                         authorName: product.authorName,
                         authorAvatar: product.authorAvatar,
-                        tagText:
-                            product.condition, // ส่งสภาพสินค้าไปโชว์เป็น Tag
-                        footerText: 'ผู้ขาย: ${product.authorName}',
+
+                        tagText: product.condition, // มือหนึ่ง/มือสอง
+                        // ✅ บังคับโชว์ชื่อคนขายด้านล่าง
+                        footerText: product.authorName,
                         onTap: () {
                           Navigator.push(
                             context,
